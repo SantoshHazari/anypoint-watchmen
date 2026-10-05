@@ -1,0 +1,324 @@
+{
+  "policy": {
+    "default_thresholds_percent": [
+      50,
+      70,
+      80,
+      90,
+      95
+    ],
+    "operating_mode": "contract_confirmed",
+    "notes": "Contract entitlements reconciled against vendor Monthly Usage Summary, Statement Period 2026-06. Entries with usage_model MONITOR have no contractual limit on this invoice - tracked for awareness only, no thresholds or alerts. UI orders contract entitlements first (invoice order), monitoring meters after."
+  },
+  "limits": [
+    {
+      "key": "api_access_requests",
+      "name": "API Access Requests",
+      "limit": 100,
+      "unit": "api_requests",
+      "usage_model": "DRAWDOWN",
+      "meter_key": "api_access_requests",
+      "measurement": "api_access_requests",
+      "source": "vendor Monthly Usage Summary, Statement Period 2026-06",
+      "status": "confirmed"
+    },
+    {
+      "key": "data_throughput",
+      "name": "Data Throughput",
+      "limit": 56500,
+      "unit": "GB",
+      "api_unit": "bytes",
+      "usage_model": "DRAWDOWN",
+      "meter_key": "data_throughput",
+      "measurement": "network_bytes_count",
+      "source": "vendor Monthly Usage Summary, Statement Period 2026-06",
+      "status": "confirmed"
+    },
+    {
+      "key": "api_manager_prod",
+      "name": "API Manager Production",
+      "limit": 52,
+      "unit": "managed_api_instances",
+      "usage_model": "HIGH_WATERMARK",
+      "meter_key": "api_manager_prod",
+      "measurement": "managed_api_count",
+      "source": "vendor Monthly Usage Summary, Statement Period 2026-06",
+      "status": "confirmed"
+    },
+    {
+      "key": "api_manager_preprod",
+      "name": "API Manager Pre-Production",
+      "limit": 52,
+      "unit": "managed_api_instances",
+      "usage_model": "HIGH_WATERMARK",
+      "meter_key": "api_manager_preprod",
+      "measurement": "managed_api_count",
+      "source": "vendor Monthly Usage Summary, Statement Period 2026-06",
+      "status": "confirmed"
+    },
+    {
+      "key": "governed_apis",
+      "name": "APIs Under Governance",
+      "limit": 52,
+      "unit": "governed_apis",
+      "usage_model": "HIGH_WATERMARK",
+      "meter_key": "governed_apis",
+      "measurement": "governed_api_count",
+      "source": "vendor Monthly Usage Summary, Statement Period 2026-06",
+      "status": "confirmed"
+    },
+    {
+      "key": "flex_gateway_api_calls",
+      "name": "Flex Gateway API Calls",
+      "limit": 120000000,
+      "unit": "api_calls",
+      "usage_model": "DRAWDOWN",
+      "meter_key": "flex_gateway_api_calls",
+      "measurement": "api_call_count",
+      "source": "vendor Monthly Usage Summary, Statement Period 2026-06",
+      "status": "confirmed"
+    },
+    {
+      "key": "mule_flows",
+      "name": "Mule Flows",
+      "limit": 280,
+      "unit": "flows",
+      "usage_model": "HIGH_WATERMARK",
+      "meter_key": "mule_flows",
+      "measurement": "mule_flow_count",
+      "source": "vendor Monthly Usage Summary, Statement Period 2026-06",
+      "status": "confirmed"
+    },
+    {
+      "key": "mule_messages",
+      "name": "Mule Messages",
+      "limit": 47000000,
+      "unit": "messages",
+      "usage_model": "DRAWDOWN",
+      "meter_key": "mule_messages",
+      "measurement": "mule_message_count",
+      "source": "vendor Monthly Usage Summary, Statement Period 2026-06",
+      "status": "confirmed"
+    },
+    {
+      "key": "idp_processed_pages",
+      "name": "IDP Processed Pages",
+      "limit": 300000,
+      "unit": "pages",
+      "usage_model": "DRAWDOWN",
+      "meter_key": "idp_processed_pages",
+      "measurement": "idp_processed_pages",
+      "source": "vendor Monthly Usage Summary, (Automation Credits 2.0: 9,000,000 @ 30 credits/page = 300,000 pages)",
+      "status": "confirmed"
+    },
+    {
+      "key": "llm_total_tokens",
+      "name": "LLM Proxy - Total Tokens",
+      "limit": 0,
+      "unit": "tokens",
+      "usage_model": "MONITOR",
+      "meter_key": "llm_total_tokens",
+      "measurement": "total_tokens",
+      "source": "Anypoint Usage API (flex_total_tokens) - not a billed entitlement on the contract",
+      "status": "monitor"
+    },
+    {
+      "key": "llm_prompt_tokens",
+      "name": "LLM Proxy - Prompt Tokens",
+      "limit": 0,
+      "unit": "tokens",
+      "usage_model": "MONITOR",
+      "meter_key": "llm_prompt_tokens",
+      "measurement": "prompt_tokens",
+      "source": "Anypoint Usage API (flex_prompt_tokens) - not a billed entitlement on the contract",
+      "status": "monitor"
+    },
+    {
+      "key": "llm_completion_tokens",
+      "name": "LLM Proxy - Completion Tokens",
+      "limit": 0,
+      "unit": "tokens",
+      "usage_model": "MONITOR",
+      "meter_key": "llm_completion_tokens",
+      "measurement": "completion_tokens",
+      "source": "Anypoint Usage API (flex_completion_tokens) - not a billed entitlement on the contract",
+      "status": "monitor"
+    },
+    {
+      "key": "flex_network_outbound_bytes",
+      "name": "Flex Gateway - Outbound Bytes",
+      "limit": 0,
+      "unit": "bytes",
+      "usage_model": "MONITOR",
+      "meter_key": "flex_network_outbound_bytes",
+      "measurement": "network_outbound_bytes_count",
+      "source": "Anypoint Usage API (flex_network_outbound_bytes_count) - not a billed entitlement on the contract",
+      "status": "monitor"
+    },
+    {
+      "key": "object_store_effective_api_requests",
+      "name": "Object Store Effective API Requests",
+      "limit": 0,
+      "unit": "api_requests",
+      "usage_model": "MONITOR",
+      "meter_key": "object_store_effective_api_requests",
+      "measurement": "effective_api_requests",
+      "source": "Anypoint Usage API (object_store_effective_api_requests_count) - not present on the contract invoice",
+      "status": "monitor"
+    },
+    {
+      "key": "anypoint_mq_api_requests",
+      "name": "Anypoint MQ - API Requests",
+      "limit": 0,
+      "unit": "api_requests",
+      "usage_model": "MONITOR",
+      "meter_key": "anypoint_mq_api_requests",
+      "measurement": "api_requests",
+      "source": "Anypoint Usage API (anypoint_mq_api_requests_count) - not present on the contract invoice",
+      "status": "monitor"
+    },
+    {
+      "key": "anypoint_mq_message_units",
+      "name": "Anypoint MQ - Message Units",
+      "limit": 0,
+      "unit": "message_units",
+      "usage_model": "MONITOR",
+      "meter_key": "anypoint_mq_message_units",
+      "measurement": "message_units",
+      "source": "Anypoint Usage API (anypoint_mq_message_units_count) - not present on the contract invoice",
+      "status": "monitor"
+    },
+    {
+      "key": "anypoint_mq_messages_received",
+      "name": "Anypoint MQ - Messages Received",
+      "limit": 0,
+      "unit": "messages",
+      "usage_model": "MONITOR",
+      "meter_key": "anypoint_mq_messages_received",
+      "measurement": "messages_received",
+      "source": "Anypoint Usage API (anypoint_mq_messages_received_count) - not present on the contract invoice",
+      "status": "monitor"
+    },
+    {
+      "key": "anypoint_mq_messages_bytes",
+      "name": "Anypoint MQ - Messages Bytes",
+      "limit": 0,
+      "unit": "bytes",
+      "usage_model": "MONITOR",
+      "meter_key": "anypoint_mq_messages_bytes",
+      "measurement": "messages_bytes",
+      "source": "Anypoint Usage API (anypoint_mq_messages_bytes_count) - not present on the contract invoice",
+      "status": "monitor"
+    },
+    {
+      "key": "api_manager_unclassified",
+      "name": "API Manager - Unclassified",
+      "limit": 0,
+      "unit": "managed_api_instances",
+      "usage_model": "MONITOR",
+      "meter_key": "api_manager_unclassified",
+      "measurement": "managed_api_count",
+      "source": "Anypoint Usage API (api_manager_api_instance_count_unclassified) - environments not classified prod/preprod",
+      "status": "monitor"
+    },
+    {
+      "key": "composer_tasks",
+      "name": "Composer Tasks",
+      "limit": 0,
+      "unit": "tasks",
+      "usage_model": "MONITOR",
+      "meter_key": "composer_tasks",
+      "measurement": "num_tasks",
+      "source": "Anypoint Usage API (composer_num_tasks) - not present on the contract invoice",
+      "status": "monitor"
+    },
+    {
+      "key": "rpa_bot_minutes",
+      "name": "RPA Bot Minutes",
+      "limit": 0,
+      "unit": "minutes",
+      "usage_model": "MONITOR",
+      "meter_key": "rpa_bot_minutes",
+      "measurement": "bot_usage",
+      "source": "Anypoint Usage API (rpa_bot_session_minutes) - not present on the contract invoice",
+      "status": "monitor"
+    },
+    {
+      "key": "aeh_approved_contracts",
+      "name": "API Experience Hub - Approved Contracts",
+      "limit": 0,
+      "unit": "contracts",
+      "usage_model": "MONITOR",
+      "meter_key": "aeh_approved_contracts",
+      "measurement": "approved_contract_count",
+      "source": "Anypoint Usage API (acm_aeh_approved_contracts_count) - not present on the contract invoice",
+      "status": "monitor"
+    },
+    {
+      "key": "rtf_cpu_core_limit_prod",
+      "name": "RTF CPU Core Limit - Production",
+      "limit": 0,
+      "unit": "cpu_cores",
+      "usage_model": "MONITOR",
+      "meter_key": "rtf_cpu_core_limit_prod",
+      "measurement": "total_cpu_core_limit",
+      "source": "Anypoint Usage API (rmp_rtf_total_cpu_core_limit_prod) - no RTF clusters in this org",
+      "status": "monitor"
+    },
+    {
+      "key": "rtf_cpu_core_limit_preprod",
+      "name": "RTF CPU Core Limit - Pre-Production",
+      "limit": 0,
+      "unit": "cpu_cores",
+      "usage_model": "MONITOR",
+      "meter_key": "rtf_cpu_core_limit_preprod",
+      "measurement": "total_cpu_core_limit",
+      "source": "Anypoint Usage API (rmp_rtf_total_cpu_core_limit_preprod) - no RTF clusters in this org",
+      "status": "monitor"
+    },
+    {
+      "key": "rtf_cpu_core_reserve_prod",
+      "name": "RTF CPU Core Reserve - Production",
+      "limit": 0,
+      "unit": "cpu_cores",
+      "usage_model": "MONITOR",
+      "meter_key": "rtf_cpu_core_reserve_prod",
+      "measurement": "total_cpu_core_reserve",
+      "source": "Anypoint Usage API (rmp_rtf_total_cpu_core_reserve_prod) - no RTF clusters in this org",
+      "status": "monitor"
+    },
+    {
+      "key": "rtf_cpu_core_reserve_preprod",
+      "name": "RTF CPU Core Reserve - Pre-Production",
+      "limit": 0,
+      "unit": "cpu_cores",
+      "usage_model": "MONITOR",
+      "meter_key": "rtf_cpu_core_reserve_preprod",
+      "measurement": "total_cpu_core_reserve",
+      "source": "Anypoint Usage API (rmp_rtf_total_cpu_core_reserve_preprod) - no RTF clusters in this org",
+      "status": "monitor"
+    },
+    {
+      "key": "rtf_cluster_cpu_capacity_prod",
+      "name": "RTF Cluster CPU Capacity - Production",
+      "limit": 0,
+      "unit": "cpu_cores",
+      "usage_model": "MONITOR",
+      "meter_key": "rtf_cluster_cpu_capacity_prod",
+      "measurement": "allocatable_cpu",
+      "source": "Anypoint Usage API (rtf_cluster_cpu_capacity_prod) - no RTF clusters in this org",
+      "status": "monitor"
+    },
+    {
+      "key": "rtf_cluster_cpu_capacity_preprod",
+      "name": "RTF Cluster CPU Capacity - Pre-Production",
+      "limit": 0,
+      "unit": "cpu_cores",
+      "usage_model": "MONITOR",
+      "meter_key": "rtf_cluster_cpu_capacity_preprod",
+      "measurement": "allocatable_cpu",
+      "source": "Anypoint Usage API (rtf_cluster_cpu_capacity_preprod) - no RTF clusters in this org",
+      "status": "monitor"
+    }
+  ]
+}

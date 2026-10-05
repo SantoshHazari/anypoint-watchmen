@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anypoint Watchmen</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ range(100000)|random }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Anypoint Watchmen</h1>
+      <p>Usage control and entitlement runway</p>
+    </div>
+    <nav>
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('inventory_page') }}">Inventory</a>
+      <a href="{{ url_for('schedules_page') }}">Schedules</a>
+      <a href="{{ url_for('audit_page') }}">Audit</a>
+      <a href="{{ url_for('alerts_page') }}">Alerts</a>
+      <a href="{{ url_for('jobs') }}">Jobs</a>
+      <a href="{{ url_for('health') }}">Health</a>
+      <a href="{{ url_for('settings_page') }}">Settings</a>
+    </nav>
+  </header>
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-container">
+      {% for category, message in messages %}
+      <div class="flash flash-{{ category }}">
+        <span>{{ message }}</span>
+        <button onclick="this.parentElement.remove()" class="flash-close">&times;</button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

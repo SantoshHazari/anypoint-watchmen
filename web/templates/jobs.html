@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Available Jobs</h2>
+  <div class="job-cards">
+    {% for name in definitions %}
+    {% set meta = job_meta.get(name, {}) %}
+    <div class="job-card">
+      <div>
+        <strong>{{ meta.get('label', name) }}</strong>
+        <p class="muted">{{ meta.get('description', '') }}</p>
+      </div>
+      <form method="post" action="{{ url_for('run_job', job_name=name) }}">
+        <button type="submit">Run</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="toolbar">
+  {% if scheduler.enabled %}
+  <form method="post" action="{{ url_for('scheduler_stop') }}"><button class="secondary" type="submit">Stop Scheduler</button></form>
+  {% else %}
+  <form method="post" action="{{ url_for('scheduler_start') }}"><button class="secondary" type="submit">Start Scheduler</button></form>
+  {% endif %}
+</section>
+
+<section class="summary-grid">
+  <div class="metric">
+    <span>Scheduler</span>
+    <strong>{{ "On" if scheduler.enabled else "Off" }}</strong>
+  </div>
+  <div class="metric">
+    <span>Next Run</span>
+    <strong class="small">{{ scheduler.next_run_at[:16] if scheduler.next_run_at else "None" }}</strong>
+  </div>
+  <div class="metric">
+    <span>Running</span>
+    <strong>{{ running|length }}</strong>
+  </div>
+  <div class="metric">
+    <span>Interval</span>
+    <strong>{{ scheduler.interval_seconds // 3600 }}h</strong>
+  </div>
+</section>
+
+<section>
+  <h2>Job History</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Run ID</th>
+          <th>Job</th>
+          <th>Status</th>
+          <th>Requested By</th>
+          <th>Started</th>
+          <th>Duration</th>
+          <th>Error</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for job in jobs %}
+        {% set meta = job_meta.get(job.job_name, {}) %}
+        <tr>
+          <td class="mono"><a href="{{ url_for('job_detail', run_id=job.run_id) }}">{{ job.run_id }}</a></td>
+          <td>{{ meta.get('label', job.job_name) }}</td>
+          <td><span class="badge {{ job.status }}">{{ job.status }}</span></td>
+          <td>{{ job.requested_by }}</td>
+          <td style="white-space:nowrap;" title="{{ job.started_at_utc }}">
+            {{ job.started_at_utc | audit_time }}
+            <span class="muted">({{ job.started_at_utc | audit_relative }})</span>
+          </td>
+          <td>{{ "%.2f"|format(job.duration_seconds or 0) }}s</td>
+          <td>{{ job.error[:140] if job.error else "" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

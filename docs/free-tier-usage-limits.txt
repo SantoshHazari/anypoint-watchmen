@@ -1,0 +1,111 @@
+Sí — la información adicional de tiers/límites que faltaba está en esas capturas.
+La tabla completa y consolidada quedaría así:
+
+MuleSoft Partner $0 Entitlement — Complete Known Limits
+Capability	Included Qty	Overage Rate	Notes
+Automation Credits 2.0	9,000,000	$0.00525	Usage-based
+API Manager Production	52	$230.85	Likely APIs/environments
+API Manager Pre-Production	52	$259.20	PreProd APIs
+APIs Under Governance	52	$114.00	Governance-managed APIs
+Mule Flows – Advanced	280	$23.625	Flow units
+Mule Messages – Advanced	47,000,000	$0.000585	Message consumption
+Data Throughput (GB)	56,500 GB	$0.288 / GB	Annual cumulative
+API Calls for Flex Gateway	120,000,000	$0.00000367	Flex Gateway traffic
+API Access Requests	100	$41.85	API request entitlements
+Additional Included Components (from Services section)
+
+These appeared included at $0 in the contract:
+
+Included Service	Quantity
+API Experience Hub	1
+Additional Composer Connectors	7
+Anypoint API Governance	40
+API Manager PreProd	40
+API Manager Prod	40
+Flex Gateway	1
+MQ API Requests (500M)	1
+Object Store (100M)	1
+Private Space	1
+Network Connection	1
+Premium / B2B / Enterprise Connectors Included
+
+All appeared at $0 entitlement level:
+
+Connector / Capability
+HL7
+IBM CTG
+Oracle EBS
+Oracle PeopleSoft
+SAP Connector
+Siebel
+AS2
+FTPS
+EDIFACT
+RosettaNet
+TRADACOMS
+X12
+
+Most marked as:
+
+Pre-Production
+Included under partner entitlement
+Important Contract Clauses Confirmed
+Usage Billing
+
+Explicit clause:
+
+“Usage fees are billable in accordance with the Usage Details Table for each Usage Type.”
+
+Meaning:
+
+Overage = automatically billable
+Billing Model
+
+All rows indicate:
+
+Monthly in arrears
+
+Meaning:
+
+Consumption tracked continuously
+If annual cap exceeded:
+Invoiced afterward
+Annual (not monthly) interpretation
+
+The contract wording strongly suggests:
+
+cumulative annual consumption
+no monthly reset
+
+because it says:
+
+“upon Customer exceeding its available Pre-purchased Quantity prior to the applicable Order End Date”
+
+Practical Interpretation
+
+This entitlement is actually very large for:
+
+demos
+presales
+AgentFabric evaluation
+controlled development
+
+The limits become dangerous only if:
+
+production workloads
+public APIs
+high-volume integrations
+enterprise batch processing
+are deployed into it.
+Internal Governance Assumptions
+
+Your mitigation strategy discussed internally:
+
+Control	Status
+~10 users max	planned
+Senior/architect users only	planned
+No production usage	planned
+Monitoring	required
+Alerting	required
+Rate limiting	required
+Central governance	required

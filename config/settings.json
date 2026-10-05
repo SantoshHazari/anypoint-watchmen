@@ -1,0 +1,61 @@
+{
+  "app_base_url": "http://localhost:5050",
+  "audit": {
+    "auto_resolve_days": 7,
+    "max_lookback_hours": 24,
+    "exclude_actions": [
+      "login",
+      "logout",
+      "read",
+      "view",
+      "list",
+      "search",
+      "get",
+      "permissions change",
+      "edit"
+    ]
+  },
+  "contract": {
+    "signed_date": "2026-05-04",
+    "start_date": "2026-05-04",
+    "end_date": "2027-05-06",
+    "status": "confirmed_subscription_end",
+    "notes": "Subscription end date confirmed by administrator."
+  },
+  "storage": {
+    "sqlite_path": "data/watchmen.sqlite",
+    "raw_usage_dir": "data/raw/usage"
+  },
+  "scheduler": {
+    "interval_value": 60,
+    "interval_unit": "minutes"
+  },
+  "schedule": {
+    "poll_interval": 30,
+    "auto_start": false
+  },
+  "dashboard": {
+    "days_limit": 15
+  },
+  "alerts": {
+    "enabled_channels": [
+      "file",
+      "email"
+    ],
+    "file": {
+      "path": "data/alerts/alerts.jsonl"
+    },
+    "email": {
+      "enabled": true,
+      "smtp_host_env": "SMTP_SERVER",
+      "smtp_port_env": "SMTP_PORT",
+      "smtp_ssl": true,
+      "username_env": "SMTP_SENDER_EMAIL",
+      "password_env": "SMTP_SENDER_PASSWORD",
+      "from_env": "SMTP_SENDER_EMAIL",
+      "to": [
+        "alerts@example.com"
+      ]
+    }
+  }
+}

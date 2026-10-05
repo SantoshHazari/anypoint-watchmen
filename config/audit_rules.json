@@ -1,0 +1,115 @@
+{
+  "actions": {
+    "critical": [
+      "delete",
+      "revoke",
+      "disable"
+    ],
+    "warning": [
+      "create"
+    ],
+    "info": [
+      "login",
+      "logout",
+      "read",
+      "view",
+      "list",
+      "search",
+      "get"
+    ]
+  },
+  "combos": {
+    "critical": [
+      {
+        "action": "create",
+        "target": "organization"
+      },
+      {
+        "action": "delete",
+        "target": "organization"
+      },
+      {
+        "action": "create",
+        "target": "environment"
+      },
+      {
+        "action": "delete",
+        "target": "environment"
+      },
+      {
+        "action": "delete",
+        "target": "application"
+      },
+      {
+        "action": "delete",
+        "target": "api"
+      },
+      {
+        "action": "delete",
+        "target": "api (in environment)"
+      },
+      {
+        "action": "delete",
+        "target": "asset"
+      },
+      {
+        "action": "delete",
+        "target": "automated policy"
+      },
+      {
+        "action": "delete",
+        "target": "user"
+      },
+      {
+        "action": "delete",
+        "target": "role"
+      },
+      {
+        "action": "delete",
+        "target": "team"
+      },
+      {
+        "action": "delete",
+        "target": "connected application"
+      }
+    ],
+    "warning": [
+      {
+        "action": "create",
+        "target": "asset"
+      },
+      {
+        "action": "create",
+        "target": "api"
+      },
+      {
+        "action": "create",
+        "target": "api (in environment)"
+      },
+      {
+        "action": "create",
+        "target": "application"
+      },
+      {
+        "action": "create",
+        "target": "connected application"
+      },
+      {
+        "action": "create",
+        "target": "user"
+      },
+      {
+        "action": "create",
+        "target": "team"
+      },
+      {
+        "action": "create",
+        "target": "automated policy"
+      },
+      {
+        "action": "deploy",
+        "target": "api (in environment)"
+      }
+    ]
+  }
+}

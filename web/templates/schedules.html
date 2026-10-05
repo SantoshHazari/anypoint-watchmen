@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+{% block content %}
+
+{# -- Engine status bar -- #}
+<section class="summary-grid" style="align-items:center;">
+  <div class="metric">
+    <span>Engine</span>
+    <strong>
+      <span class="badge {{ 'ok' if engine_running else 'critical' }}">{{ "Running" if engine_running else "Stopped" }}</span>
+    </strong>
+  </div>
+  <div class="metric">
+    <span>Poll Interval</span>
+    <strong>{{ engine_interval }}s</strong>
+  </div>
+  <div class="metric">
+    <span>Timezone</span>
+    <strong>{{ tz_name }}</strong>
+  </div>
+  <div class="metric">
+    <span>Env Schedules</span>
+    <strong>{{ counts.env_schedules }}</strong>
+  </div>
+  <div class="metric">
+    <span>Custom Overrides</span>
+    <strong>{{ counts.custom_overrides }}</strong>
+  </div>
+  <div class="metric">
+    <span>Always-On</span>
+    <strong>{{ counts.always_on }}</strong>
+  </div>
+  <div class="metric">
+    <span>Pending One-Time</span>
+    <strong>{{ counts.pending_one_time }}</strong>
+  </div>
+  <div class="metric">
+    <span>Actions Today</span>
+    <strong>{{ counts.actions_today }}</strong>
+  </div>
+  <div style="display:flex;gap:6px;">
+    {% if engine_running %}
+    <form method="post" action="{{ url_for('schedule_engine_stop') }}">
+      <button type="submit" class="btn-sm danger">Stop Engine</button>
+    </form>
+    {% else %}
+    <form method="post" action="{{ url_for('schedule_engine_start') }}">
+      <button type="submit" class="btn-sm ok">Start Engine</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+{# -- Environment Schedules -- #}
+<section>
+  <h2>Environment Schedules</h2>
+
+  {% if env_schedules %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Environment</th><th>Mode</th><th>Start</th><th>Stop</th><th>Days</th><th>Next In</th><th>Enabled</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for s in env_schedules %}
+        <tr>
+          <td><strong>{{ s.env_name or s.env_id }}</strong></td>
+          <td>
+            <span class="badge {{ 'critical' if not s.start_time else 'ok' if not s.stop_time else '' }}">
+              {{ "Stop only" if not s.start_time else "Start only" if not s.stop_time else "Window" }}
+            </span>
+          </td>
+          <td class="mono">{{ s.start_time or '-' }}</td>
+          <td class="mono">{{ s.stop_time or '-' }}</td>
+          <td class="mono">{{ s.days_of_week | replace("0","Mon") | replace("1","Tue") | replace("2","Wed") | replace("3","Thu") | replace("4","Fri") | replace("5","Sat") | replace("6","Sun") }}</td>
+          <td class="mono sched-countdown"
+              data-start="{{ s.start_time or '' }}"
+              data-stop="{{ s.stop_time or '' }}"
+              data-days="{{ s.days_of_week }}"
+              data-enabled="{{ s.enabled }}">-</td>
+          <td><span class="badge {{ 'ok' if s.enabled else 'critical' }}">{{ "Yes" if s.enabled else "No" }}</span></td>
+          <td>
+            <form method="post" action="{{ url_for('schedule_env_delete', schedule_id=s.id) }}" style="display:inline;"
+                  onsubmit="return confirm('Remove this schedule entry for {{ s.env_name or s.env_id }}?');">
+              <button type="submit" class="btn-sm danger">Remove</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No environment schedules configured.</p>
+  {% endif %}
+
+  <details style="margin-top:12px;">
+    <summary><strong>+ Add Environment Schedule</strong></summary>
+    <form method="post" action="{{ url_for('schedule_env_upsert') }}" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:10px;align-items:end;">
+      <label>
+        Environment
+        <select name="env_id" required onchange="
+          var opt=this.options[this.selectedIndex];
+          this.form.env_name.value=opt.dataset.name||'';
+          this.form.org_id.value=opt.dataset.org||'';
+        ">
+          <option value="">-- select --</option>
+          {% for env in environments %}
+          <option value="{{ env.env_id }}" data-name="{{ env.name }}" data-org="{{ env.bg_id }}">{{ env.bg_name }}/{{ env.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <input type="hidden" name="env_name">
+      <input type="hidden" name="org_id">
+      <label>
+        Mode
+        <select name="mode" onchange="
+          var m=this.value;
+          var sf=this.form;
+          var startL=document.getElementById('env-start-label');
+          var stopL=document.getElementById('env-stop-label');
+          startL.style.display=(m==='start'||m==='both')?'':'none';
+          stopL.style.display=(m==='stop'||m==='both')?'':'none';
+          if(m==='stop'){sf.start_time.value='';sf.start_time.removeAttribute('required');}
+          else{sf.start_time.value=sf.start_time.value||'08:00';}
+          if(m==='start'){sf.stop_time.value='';sf.stop_time.removeAttribute('required');}
+          else{sf.stop_time.value=sf.stop_time.value||'18:00';}
+        ">
+          <option value="stop">Stop only</option>
+          <option value="start">Start only</option>
+          <option value="both" selected>Operating window (both)</option>
+        </select>
+      </label>
+      <label id="env-start-label">Start <input type="time" name="start_time" value="08:00"></label>
+      <label id="env-stop-label">Stop <input type="time" name="stop_time" value="18:00"></label>
+      <fieldset style="border:1px solid var(--border);padding:6px 10px;border-radius:6px;">
+        <legend style="font-size:.85em;">Days</legend>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="0" checked> Mon</label>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="1" checked> Tue</label>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="2" checked> Wed</label>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="3" checked> Thu</label>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="4" checked> Fri</label>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="5"> Sat</label>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="6"> Sun</label>
+      </fieldset>
+      <input type="hidden" name="enabled" value="on">
+      <button type="submit" class="btn-sm ok">Save Schedule</button>
+    </form>
+  </details>
+</section>
+
+{# -- App Overrides: Custom Schedules -- #}
+<section>
+  <h2>Custom App Schedules</h2>
+
+  {% if app_customs %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>App</th><th>Source</th><th>Env</th><th>Start</th><th>Stop</th><th>Days</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for o in app_customs %}
+        <tr>
+          <td><strong>{{ o.domain }}</strong></td>
+          <td><span class="badge">{{ o.source }}</span></td>
+          <td class="mono">{{ o.env_id[:12] }}</td>
+          <td class="mono">{{ o.start_time }}</td>
+          <td class="mono">{{ o.stop_time }}</td>
+          <td class="mono">{{ o.days_of_week | replace("0","Mon") | replace("1","Tue") | replace("2","Wed") | replace("3","Thu") | replace("4","Fri") | replace("5","Sat") | replace("6","Sun") }}</td>
+          <td>
+            <form method="post" action="{{ url_for('schedule_app_delete', override_id=o.id) }}" style="display:inline;"
+                  onsubmit="return confirm('Remove custom schedule for {{ o.domain }}?');">
+              <button type="submit" class="btn-sm danger">Remove</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No custom app schedules.</p>
+  {% endif %}
+
+  <details style="margin-top:12px;">
+    <summary><strong>+ Add Custom App Schedule</strong></summary>
+    <form method="post" action="{{ url_for('schedule_app_upsert') }}" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:10px;align-items:end;">
+      <input type="hidden" name="override_type" value="custom">
+      <label>
+        Application
+        <select name="domain" required onchange="
+          var opt=this.options[this.selectedIndex];
+          this.form.source.value=opt.dataset.source||'';
+          this.form.env_id.value=opt.dataset.env||'';
+          this.form.org_id.value=opt.dataset.org||'';
+          this.form.deployment_id.value=opt.dataset.dep||'';
+        ">
+          <option value="">-- select --</option>
+          {% for a in applications %}
+          {% if a.source in ('cloudhub', 'ch2') %}
+          <option value="{{ a.domain }}" data-source="{{ a.source }}" data-env="{{ a.env_id }}" data-org="{{ a.bg_id }}" data-dep="{{ a._extra.deployment_id|default('', true) }}">{{ a.domain }} ({{ a.source }})</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </label>
+      <input type="hidden" name="source">
+      <input type="hidden" name="env_id">
+      <input type="hidden" name="org_id">
+      <input type="hidden" name="deployment_id">
+      <label>Start <input type="time" name="start_time" value="08:00" required></label>
+      <label>Stop <input type="time" name="stop_time" value="18:00" required></label>
+      <fieldset style="border:1px solid var(--border);padding:6px 10px;border-radius:6px;">
+        <legend style="font-size:.85em;">Days</legend>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="0" checked> Mon</label>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="1" checked> Tue</label>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="2" checked> Wed</label>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="3" checked> Thu</label>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="4" checked> Fri</label>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="5"> Sat</label>
+        <label style="font-size:.85em;"><input type="checkbox" name="days" value="6"> Sun</label>
+      </fieldset>
+      <button type="submit" class="btn-sm ok">Save</button>
+    </form>
+  </details>
+</section>
+
+{# -- App Overrides: Always-On Exclusion List -- #}
+<section>
+  <h2>Always-On Exclusion List</h2>
+
+  {% if app_always_on %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>App</th><th>Source</th><th>Env</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for o in app_always_on %}
+        <tr>
+          <td><strong>{{ o.domain }}</strong></td>
+          <td><span class="badge">{{ o.source }}</span></td>
+          <td class="mono">{{ o.env_id[:12] }}</td>
+          <td>
+            <form method="post" action="{{ url_for('schedule_app_delete', override_id=o.id) }}" style="display:inline;"
+                  onsubmit="return confirm('Remove always-on for {{ o.domain }}?');">
+              <button type="submit" class="btn-sm danger">Remove</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No always-on exclusions.</p>
+  {% endif %}
+
+  <details style="margin-top:12px;">
+    <summary><strong>+ Add Always-On App</strong></summary>
+    <form method="post" action="{{ url_for('schedule_app_upsert') }}" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:10px;align-items:end;">
+      <input type="hidden" name="override_type" value="always_on">
+      <label>
+        Application
+        <select name="domain" required onchange="
+          var opt=this.options[this.selectedIndex];
+          this.form.source.value=opt.dataset.source||'';
+          this.form.env_id.value=opt.dataset.env||'';
+          this.form.org_id.value=opt.dataset.org||'';
+          this.form.deployment_id.value=opt.dataset.dep||'';
+        ">
+          <option value="">-- select --</option>
+          {% for a in applications %}
+          {% if a.source in ('cloudhub', 'ch2') %}
+          <option value="{{ a.domain }}" data-source="{{ a.source }}" data-env="{{ a.env_id }}" data-org="{{ a.bg_id }}" data-dep="{{ a._extra.deployment_id|default('', true) }}">{{ a.domain }} ({{ a.source }})</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </label>
+      <input type="hidden" name="source">
+      <input type="hidden" name="env_id">
+      <input type="hidden" name="org_id">
+      <input type="hidden" name="deployment_id">
+      <button type="submit" class="btn-sm ok">Add</button>
+    </form>
+  </details>
+</section>
+
+{# -- One-Time Scheduled Actions -- #}
+<section>
+  <h2>One-Time Actions</h2>
+
+  {% set pending = one_times | selectattr("status", "equalto", "pending") | list %}
+
+  {% if pending %}
+  <h3 style="margin-top:0;">Pending</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Target</th><th>Action</th><th>Scheduled At</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for ot in pending %}
+        <tr>
+          <td>
+            {% if ot.target_type == 'env' %}
+              <span class="badge">env</span> {{ ot.env_id[:12] }}
+            {% else %}
+              <strong>{{ ot.domain }}</strong> <span class="badge">{{ ot.source }}</span>
+            {% endif %}
+          </td>
+          <td><span class="badge {{ 'critical' if ot.action == 'stop' or ot.action == 'stop_all' else 'ok' }}">{{ ot.action }}</span></td>
+          <td class="mono">{{ ot.scheduled_at[:16] }}</td>
+          <td class="mono">{{ ot.created_at_utc[:16] }}</td>
+          <td>
+            <form method="post" action="{{ url_for('schedule_one_time_cancel', action_id=ot.id) }}" style="display:inline;">
+              <button type="submit" class="btn-sm warn">Cancel</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if not pending %}
+  <p class="muted">No pending one-time actions.</p>
+  {% endif %}
+
+  <details style="margin-top:12px;">
+    <summary><strong>+ Schedule One-Time Action</strong></summary>
+    <form method="post" action="{{ url_for('schedule_one_time_create') }}" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:10px;align-items:end;">
+      <label>
+        Target Type
+        <select name="target_type" required onchange="
+          var isApp=this.value==='app';
+          document.getElementById('ot-app-select').style.display=isApp?'':'none';
+          document.getElementById('ot-env-select').style.display=isApp?'none':'';
+          var acts=this.form.action;
+          acts.innerHTML=isApp
+            ?'<option value=&quot;stop&quot;>Stop</option><option value=&quot;start&quot;>Start</option>'
+            :'<option value=&quot;stop_all&quot;>Stop All</option><option value=&quot;start&quot;>Start All</option>';
+        ">
+          <option value="app">App</option>
+          <option value="env">Environment</option>
+        </select>
+      </label>
+      <label>
+        Action
+        <select name="action" required>
+          <option value="stop">Stop</option>
+          <option value="start">Start</option>
+        </select>
+      </label>
+      <label id="ot-app-select">
+        Application
+        <select name="domain" onchange="
+          var opt=this.options[this.selectedIndex];
+          this.form.source.value=opt.dataset.source||'';
+          this.form.elements['env_id'].value=opt.dataset.env||'';
+          this.form.org_id.value=opt.dataset.org||'';
+          this.form.deployment_id.value=opt.dataset.dep||'';
+        ">
+          <option value="">-- select --</option>
+          {% for a in applications %}
+          {% if a.source in ('cloudhub', 'ch2') %}
+          <option value="{{ a.domain }}" data-source="{{ a.source }}" data-env="{{ a.env_id }}" data-org="{{ a.bg_id }}" data-dep="{{ a._extra.deployment_id|default('', true) }}">{{ a.domain }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </label>
+      <label id="ot-env-select" style="display:none;">
+        Environment
+        <select onchange="
+          var opt=this.options[this.selectedIndex];
+          this.form.elements['env_id'].value=opt.value;
+          this.form.org_id.value=opt.dataset.org||'';
+        ">
+          <option value="">-- select --</option>
+          {% for env in environments %}
+          <option value="{{ env.env_id }}" data-org="{{ env.bg_id }}">{{ env.bg_name }}/{{ env.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <input type="hidden" name="source">
+      <input type="hidden" name="env_id">
+      <input type="hidden" name="org_id">
+      <input type="hidden" name="deployment_id">
+      <label>When <input type="datetime-local" name="scheduled_at" required></label>
+      <button type="submit" class="btn-sm ok">Schedule</button>
+    </form>
+  </details>
+</section>
+
+{# -- Recent Audit Log -- #}
+<section>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <h2 style="margin:0;">Recent Schedule Log</h2>
+    <a href="{{ url_for('schedule_log_page') }}" class="btn-sm secondary">View All</a>
+  </div>
+
+  {# Build env/bg lookup from environments list #}
+  {% set env_map = {} %}
+  {% for e in environments %}
+    {% set _ = env_map.update({e.env_id: {"name": e.name, "bg": e.bg_name or e.bg_id}}) %}
+  {% endfor %}
+
+  {% if logs %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Time</th><th>Action</th><th>Trigger</th><th>BG</th><th>Environment</th><th>Target</th><th>OK</th><th>Detail</th></tr></thead>
+      <tbody>
+      {% for l in logs[:20] %}
+        {% set env_info = env_map.get(l.env_id, {}) %}
+        <tr>
+          <td class="mono"><span class="time-ago" data-utc="{{ l.timestamp_utc }}">{{ l.timestamp_utc[:19] }}</span></td>
+          <td><span class="badge {{ 'ok' if l.action == 'start' else 'critical' }}">{{ l.action }}</span></td>
+          <td><span class="badge">{{ l.trigger_type }}</span></td>
+          <td>{{ env_info.get("bg", l.org_id[:12] if l.org_id else "-") }}</td>
+          <td>{{ env_info.get("name", l.env_id[:12] if l.env_id else "-") }}</td>
+          <td>
+            {% if l.domain %}
+              <strong>{{ l.domain }}</strong>
+            {% else %}
+              <em>all apps</em>
+            {% endif %}
+          </td>
+          <td><span class="badge {{ 'ok' if l.ok else 'critical' }}">{{ "Yes" if l.ok else "No" }}</span></td>
+          <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;">{{ l.detail }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No schedule log entries yet.</p>
+  {% endif %}
+</section>
+
+
+<script>
+/* --- Countdown: "Next In" for environment schedules --- */
+(function(){
+  var serverNow = new Date("{{ server_iso }}");
+  var pageLoad = Date.now();
+
+  function currentLocal(){
+    // Server local time + elapsed since page load
+    return new Date(serverNow.getTime() + (Date.now() - pageLoad));
+  }
+
+  function fmtDuration(ms){
+    if(ms <= 0) return "now";
+    var s = Math.floor(ms/1000);
+    var h = Math.floor(s/3600); s %= 3600;
+    var m = Math.floor(s/60);   s %= 60;
+    if(h > 24){
+      var d = Math.floor(h/24); h %= 24;
+      return d + "d " + h + "h";
+    }
+    if(h > 0) return h + "h " + m + "m";
+    if(m > 0) return m + "m " + s + "s";
+    return s + "s";
+  }
+
+  function nextEvent(el){
+    var start = el.dataset.start, stop = el.dataset.stop;
+    var days = el.dataset.days.split(",").map(Number);
+    var enabled = el.dataset.enabled === "1";
+    if(!enabled) return null;
+
+    var now = currentLocal();
+    // Check today and next 7 days
+    for(var d=0; d<8; d++){
+      var check = new Date(now); check.setDate(check.getDate()+d);
+      var wd = (check.getDay()+6)%7; // JS Sun=0 → Mon=0
+      if(days.indexOf(wd)===-1) continue;
+
+      var times = [];
+      if(stop) times.push({t: stop, label: "stop"});
+      if(start) times.push({t: start, label: "start"});
+      times.sort(function(a,b){return a.t < b.t ? -1 : 1;});
+
+      for(var i=0; i<times.length; i++){
+        var parts = times[i].t.split(":");
+        var ev = new Date(check);
+        ev.setHours(parseInt(parts[0]), parseInt(parts[1]), 0, 0);
+        var diff = ev - now;
+        if(diff > 0) return {ms: diff, label: times[i].label};
+      }
+    }
+    return null;
+  }
+
+  function updateCountdowns(){
+    document.querySelectorAll(".sched-countdown").forEach(function(el){
+      var nxt = nextEvent(el);
+      if(!nxt){
+        el.textContent = "-";
+        return;
+      }
+      var icon = nxt.label === "stop" ? "⏹" : "▶";
+      el.innerHTML = icon + " " + fmtDuration(nxt.ms);
+      el.title = "Next " + nxt.label + " in " + fmtDuration(nxt.ms);
+    });
+  }
+  updateCountdowns();
+  setInterval(updateCountdowns, 1000);
+})();
+
+/* --- Relative time ("X ago") for schedule log --- */
+(function(){
+  function timeAgo(isoStr){
+    var d = new Date(isoStr.replace(" ","T") + (isoStr.indexOf("Z")>-1||isoStr.indexOf("+")>-1 ? "" : "Z"));
+    var diff = Math.floor((Date.now() - d) / 1000);
+    if(diff < 5) return "just now";
+    if(diff < 60) return diff + "s ago";
+    var m = Math.floor(diff/60);
+    if(m < 60) return m + "m ago";
+    var h = Math.floor(m/60);
+    if(h < 24) return h + "h " + (m%60) + "m ago";
+    var days = Math.floor(h/24);
+    return days + "d " + (h%24) + "h ago";
+  }
+
+  document.querySelectorAll(".time-ago").forEach(function(el){
+    var utc = el.dataset.utc;
+    if(!utc) return;
+    var ago = timeAgo(utc);
+    el.innerHTML = el.textContent + " <span style='color:var(--muted);font-size:.85em;'>(" + ago + ")</span>";
+  });
+})();
+</script>
+
+{% endblock %}

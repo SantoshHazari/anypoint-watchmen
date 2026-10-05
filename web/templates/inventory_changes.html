@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <div class="toolbar" style="margin-bottom:14px;">
+    <h2>Inventory Changes</h2>
+    <a href="{{ url_for('inventory_page') }}">Back to Inventory</a>
+  </div>
+  {% if changes %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Type</th><th>Entity</th><th>Key</th><th>Environment</th><th>Changed By</th><th>Old</th><th>New</th><th>Detected</th><th>Run</th></tr></thead>
+      <tbody>
+      {% for ch in changes %}
+        <tr>
+          <td>
+            <span class="badge {{ 'ok' if ch.change_type == 'added' else 'critical' if ch.change_type == 'removed' else 'warning' }}">
+              {{ ch.change_type }}
+            </span>
+          </td>
+          <td>{{ ch.entity_type }}</td>
+          <td class="mono">{{ ch.entity_key }}</td>
+          <td class="mono">{{ ch.env_id }}</td>
+          <td>{{ ch.changed_by or '—' }}</td>
+          <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">
+            {% if ch.old %}{% for k, v in ch.old.items() %}{{ k }}: {{ v }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}&mdash;{% endif %}
+          </td>
+          <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">
+            {% if ch.new %}{% for k, v in ch.new.items() %}{{ k }}: {{ v }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}&mdash;{% endif %}
+          </td>
+          <td>{{ ch.detected_at_utc[:16] }}</td>
+          <td class="mono">{{ ch.run_id }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No inventory changes detected yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

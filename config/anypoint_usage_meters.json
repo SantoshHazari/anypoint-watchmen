@@ -1,0 +1,193 @@
+{
+  "meters": [
+    {
+      "key": "mule_flows",
+      "meter": "runtime_flow_count",
+      "measurement": "mule_flow_count",
+      "type": "MAX_CONCURRENT",
+      "select": ["org_name", "env_name", "env_type", "app_name", "deployment_model", "mule_flow_count", "max_concurrent_time"]
+    },
+    {
+      "key": "mule_messages",
+      "meter": "runtime_mule_message_count",
+      "measurement": "mule_message_count",
+      "type": "SUM",
+      "select": ["org_name", "env_name", "env_type", "app_name", "deployment_model", "mule_message_count"]
+    },
+    {
+      "key": "data_throughput",
+      "meter": "runtime_network_bytes_count",
+      "measurement": "network_bytes_count",
+      "type": "SUM",
+      "select": ["org_name", "env_name", "env_type", "app_name", "deployment_model", "network_bytes_count"]
+    },
+    {
+      "key": "api_manager_prod",
+      "meter": "api_manager_api_instance_count_prod",
+      "measurement": "managed_api_count",
+      "type": "MAX_CONCURRENT",
+      "select": ["org_name", "env_type", "runtime", "managed_api_count", "max_concurrent_time"]
+    },
+    {
+      "key": "api_manager_preprod",
+      "meter": "api_manager_api_instance_count_preprod",
+      "measurement": "managed_api_count",
+      "type": "MAX_CONCURRENT",
+      "select": ["org_name", "env_type", "runtime", "managed_api_count", "max_concurrent_time"]
+    },
+    {
+      "key": "api_manager_unclassified",
+      "meter": "api_manager_api_instance_count_unclassified",
+      "measurement": "managed_api_count",
+      "type": "MAX_CONCURRENT",
+      "select": ["org_name", "env_type", "runtime", "managed_api_count", "max_concurrent_time"]
+    },
+    {
+      "key": "governed_apis",
+      "meter": "governed_api_count",
+      "measurement": "governed_api_count",
+      "type": "MAX_CONCURRENT",
+      "select": ["org_name", "governed_api_count", "max_concurrent_time"]
+    },
+    {
+      "key": "flex_gateway_api_calls",
+      "meter": "flex_api_call_count",
+      "measurement": "api_call_count",
+      "type": "SUM",
+      "select": ["org_name", "env_name", "deployment_mode", "asset_name", "api_call_count"]
+    },
+    {
+      "key": "object_store_effective_api_requests",
+      "meter": "object_store_effective_api_requests_count",
+      "measurement": "effective_api_requests",
+      "type": "SUM",
+      "select": ["org_name", "env_name", "region_id", "store_id", "effective_api_requests"]
+    },
+    {
+      "key": "anypoint_mq_api_requests",
+      "meter": "anypoint_mq_api_requests_count",
+      "measurement": "api_requests",
+      "type": "SUM",
+      "select": ["org_name", "env_name", "region_id", "object_type", "object_name", "api_requests"]
+    },
+    {
+      "key": "anypoint_mq_message_units",
+      "meter": "anypoint_mq_message_units_count",
+      "measurement": "message_units",
+      "type": "SUM",
+      "select": ["org_name", "env_name", "region_id", "object_type", "object_name", "message_units"]
+    },
+    {
+      "key": "idp_processed_pages",
+      "meter": "idp_processed_pages",
+      "measurement": "processed_pages",
+      "type": "SUM",
+      "select": ["org_name", "execution_type", "processed_pages"]
+    },
+    {
+      "key": "composer_tasks",
+      "meter": "composer_num_tasks",
+      "measurement": "num_tasks",
+      "type": "SUM",
+      "select": ["asset_id", "num_tasks"]
+    },
+    {
+      "key": "rpa_bot_minutes",
+      "meter": "rpa_bot_session_minutes",
+      "measurement": "bot_usage",
+      "type": "SUM",
+      "select": ["process_id", "bot_usage"]
+    },
+    {
+      "key": "llm_total_tokens",
+      "meter": "flex_total_tokens",
+      "measurement": "total_tokens",
+      "type": "SUM",
+      "select": ["org_name", "env_name", "llm_proxy_name", "llm_provider", "model", "total_tokens"]
+    },
+    {
+      "key": "llm_prompt_tokens",
+      "meter": "flex_prompt_tokens",
+      "measurement": "prompt_tokens",
+      "type": "SUM",
+      "select": ["org_name", "env_name", "llm_proxy_name", "llm_provider", "model", "prompt_tokens"]
+    },
+    {
+      "key": "llm_completion_tokens",
+      "meter": "flex_completion_tokens",
+      "measurement": "completion_tokens",
+      "type": "SUM",
+      "select": ["org_name", "env_name", "llm_proxy_name", "llm_provider", "model", "completion_tokens"]
+    },
+    {
+      "key": "flex_network_outbound_bytes",
+      "meter": "flex_network_outbound_bytes_count",
+      "measurement": "network_outbound_bytes_count",
+      "type": "SUM",
+      "select": ["org_name", "env_name", "deployment_mode", "asset_name", "network_outbound_bytes_count"]
+    },
+    {
+      "key": "anypoint_mq_messages_received",
+      "meter": "anypoint_mq_messages_received_count",
+      "measurement": "messages_received",
+      "type": "SUM",
+      "select": ["org_name", "env_name", "region_id", "object_type", "object_name", "messages_received"]
+    },
+    {
+      "key": "anypoint_mq_messages_bytes",
+      "meter": "anypoint_mq_messages_bytes_count",
+      "measurement": "messages_bytes",
+      "type": "SUM",
+      "select": ["org_name", "env_name", "region_id", "object_type", "object_name", "messages_bytes"]
+    },
+    {
+      "key": "aeh_approved_contracts",
+      "meter": "acm_aeh_approved_contracts_count",
+      "measurement": "approved_contract_count",
+      "type": "SUM",
+      "select": ["portal_name", "target_org_id", "approved_contract_count"]
+    },
+    {
+      "key": "rtf_cpu_core_limit_prod",
+      "meter": "rmp_rtf_total_cpu_core_limit_prod",
+      "measurement": "total_cpu_core_limit",
+      "type": "MAX_CONCURRENT",
+      "select": ["org_name", "env_name", "rtf_cluster_name", "total_cpu_core_limit", "max_concurrent_time"]
+    },
+    {
+      "key": "rtf_cpu_core_limit_preprod",
+      "meter": "rmp_rtf_total_cpu_core_limit_preprod",
+      "measurement": "total_cpu_core_limit",
+      "type": "MAX_CONCURRENT",
+      "select": ["org_name", "env_name", "rtf_cluster_name", "total_cpu_core_limit", "max_concurrent_time"]
+    },
+    {
+      "key": "rtf_cpu_core_reserve_prod",
+      "meter": "rmp_rtf_total_cpu_core_reserve_prod",
+      "measurement": "total_cpu_core_reserve",
+      "type": "MAX_CONCURRENT",
+      "select": ["org_name", "env_name", "rtf_cluster_name", "total_cpu_core_reserve", "max_concurrent_time"]
+    },
+    {
+      "key": "rtf_cpu_core_reserve_preprod",
+      "meter": "rmp_rtf_total_cpu_core_reserve_preprod",
+      "measurement": "total_cpu_core_reserve",
+      "type": "MAX_CONCURRENT",
+      "select": ["org_name", "env_name", "rtf_cluster_name", "total_cpu_core_reserve", "max_concurrent_time"]
+    },
+    {
+      "key": "rtf_cluster_cpu_capacity_prod",
+      "meter": "rtf_cluster_cpu_capacity_prod",
+      "measurement": "allocatable_cpu",
+      "type": "MAX_CONCURRENT",
+      "select": ["org_name", "rtf_cluster_name", "allocatable_cpu", "max_concurrent_time"]
+    },
+    {
+      "key": "rtf_cluster_cpu_capacity_preprod",
+      "meter": "rtf_cluster_cpu_capacity_preprod",
+      "measurement": "allocatable_cpu",
+      "type": "MAX_CONCURRENT",
+      "select": ["org_name", "rtf_cluster_name", "allocatable_cpu", "max_concurrent_time"]
+    }
+  ]
+}

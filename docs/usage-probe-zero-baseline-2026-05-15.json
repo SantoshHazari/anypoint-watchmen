@@ -1,0 +1,193 @@
+{
+  "host": "https://anypoint.mulesoft.com",
+  "window_utc": {
+    "start": "2026-04-12T00:00:00+00:00",
+    "end": "2026-05-11T23:59:59+00:00"
+  },
+  "timeseries": "P1D",
+  "dimensions": false,
+  "results": [
+    {
+      "key": "mule_flows",
+      "meter": "runtime_flow_count",
+      "measurement": "mule_flow_count",
+      "query": "SELECT mule_flow_count, max_concurrent_time FROM runtime_flow_count WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:08.820657243Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "mule_messages",
+      "meter": "runtime_mule_message_count",
+      "measurement": "mule_message_count",
+      "query": "SELECT mule_message_count FROM runtime_mule_message_count WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:09.185393254Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "data_throughput",
+      "meter": "runtime_network_bytes_count",
+      "measurement": "network_bytes_count",
+      "query": "SELECT network_bytes_count FROM runtime_network_bytes_count WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:09.468788705Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "api_manager_prod",
+      "meter": "api_manager_api_instance_count_prod",
+      "measurement": "managed_api_count",
+      "query": "SELECT managed_api_count, max_concurrent_time FROM api_manager_api_instance_count_prod WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:09.817198209Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "api_manager_preprod",
+      "meter": "api_manager_api_instance_count_preprod",
+      "measurement": "managed_api_count",
+      "query": "SELECT managed_api_count, max_concurrent_time FROM api_manager_api_instance_count_preprod WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:10.154425945Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "api_manager_unclassified",
+      "meter": "api_manager_api_instance_count_unclassified",
+      "measurement": "managed_api_count",
+      "query": "SELECT managed_api_count, max_concurrent_time FROM api_manager_api_instance_count_unclassified WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:10.510123355Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "governed_apis",
+      "meter": "governed_api_count",
+      "measurement": "governed_api_count",
+      "query": "SELECT governed_api_count, max_concurrent_time FROM governed_api_count WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:10.825247504Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "flex_gateway_api_calls",
+      "meter": "flex_api_call_count",
+      "measurement": "api_call_count",
+      "query": "SELECT api_call_count FROM flex_api_call_count WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:11.080657082Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "object_store_effective_api_requests",
+      "meter": "object_store_effective_api_requests_count",
+      "measurement": "effective_api_requests",
+      "query": "SELECT effective_api_requests FROM object_store_effective_api_requests_count WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:11.339646505Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "anypoint_mq_api_requests",
+      "meter": "anypoint_mq_api_requests_count",
+      "measurement": "api_requests",
+      "query": "SELECT api_requests FROM anypoint_mq_api_requests_count WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:11.671975174Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "anypoint_mq_message_units",
+      "meter": "anypoint_mq_message_units_count",
+      "measurement": "message_units",
+      "query": "SELECT message_units FROM anypoint_mq_message_units_count WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:11.998808244Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "idp_processed_pages",
+      "meter": "idp_processed_pages",
+      "measurement": "processed_pages",
+      "query": "SELECT processed_pages FROM idp_processed_pages WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:12.275254766Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "composer_tasks",
+      "meter": "composer_num_tasks",
+      "measurement": "num_tasks",
+      "query": "SELECT num_tasks FROM composer_num_tasks WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:12.597199800Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "rpa_bot_minutes",
+      "meter": "rpa_bot_session_minutes",
+      "measurement": "bot_usage",
+      "query": "SELECT bot_usage FROM rpa_bot_session_minutes WHERE timestamp between 1775952000000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:51:12.913488086Z"
+        },
+        "data": []
+      }
+    }
+  ]
+}

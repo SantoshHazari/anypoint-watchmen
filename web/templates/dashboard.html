@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="summary-grid">
+  <div class="metric">
+    <span>Critical</span>
+    <strong class="danger">{{ critical }}</strong>
+  </div>
+  <div class="metric">
+    <span>Warning</span>
+    <strong class="warn">{{ warning }}</strong>
+  </div>
+  <div class="metric">
+    <span>Open Alerts</span>
+    <strong class="{{ 'danger' if open_alerts > 0 else '' }}">{{ open_alerts }}</strong>
+  </div>
+  <div class="metric">
+    <span>Running Jobs</span>
+    <strong>{{ running|length }}</strong>
+  </div>
+  <div class="metric">
+    <span>Scheduler</span>
+    <strong>{{ "On" if scheduler.enabled else "Off" }}</strong>
+  </div>
+  <div class="metric">
+    <span>Business Groups</span>
+    <strong>{{ inv_counts.business_groups }}</strong>
+  </div>
+  <div class="metric">
+    <span>Inventory Apps</span>
+    <strong>{{ inv_counts.applications }}</strong>
+  </div>
+  <div class="metric">
+    <span>API Instances</span>
+    <strong>{{ inv_counts.api_instances }}</strong>
+  </div>
+  <div class="metric">
+    <span>Audit Risk</span>
+    <strong class="{{ 'warn' if audit_counts.risky > 0 else '' }}">{{ audit_counts.risky }}</strong>
+  </div>
+</section>
+
+<section>
+  <h2>System Status</h2>
+  <div class="health-grid">
+    {% for check in health %}
+    <div class="health-item {{ 'health-ok' if check.ok else 'health-fail' }}">
+      <span class="health-icon">{% if check.ok %}&#10003;{% else %}&#10007;{% endif %}</span>
+      <div>
+        <strong>{{ check.name }}</strong>
+        <span class="health-detail">{{ check.detail }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="toolbar">
+  <form method="post" action="{{ url_for('run_job', job_name='collect_all') }}">
+    <button type="submit">Collect All</button>
+  </form>
+  <form method="post" action="{{ url_for('run_job', job_name='recalculate_status') }}">
+    <button type="submit">Recalculate Status</button>
+  </form>
+  {% if scheduler.enabled %}
+  <form method="post" action="{{ url_for('scheduler_stop') }}">
+    <button type="submit" class="secondary">Stop Scheduler</button>
+  </form>
+  {% else %}
+  <form method="post" action="{{ url_for('scheduler_start') }}">
+    <button type="submit" class="secondary">Start Scheduler</button>
+  </form>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Daily Consumption</h2>
+  <div class="charts-row" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
+    <div class="chart-card" style="background:var(--surface);border-radius:8px;padding:1rem;">
+      <h3 style="margin:0 0 0.5rem;">Mule Messages <span class="muted" style="font-weight:normal;font-size:0.8rem;">per day</span></h3>
+      <div style="position:relative;height:260px;">
+        <canvas id="chartMessages"></canvas>
+      </div>
+    </div>
+    <div class="chart-card" style="background:var(--surface);border-radius:8px;padding:1rem;">
+      <h3 style="margin:0 0 0.5rem;">Data Throughput <span class="muted" style="font-weight:normal;font-size:0.8rem;">GB per day</span></h3>
+      <div style="position:relative;height:260px;">
+        <canvas id="chartThroughput"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Contract Entitlements</h2>
+  <p style="color:var(--muted,#888);font-size:0.85rem;margin-top:-0.4rem;">Paid entitlements from the contract — thresholds and alerts apply.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Entitlement</th>
+          <th>Contract Limit</th>
+          <th>Used (Month)</th>
+          <th>Used (Contract)</th>
+          <th style="min-width:180px;">% of Limit</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in statuses if item.usage_model != 'MONITOR' %}
+        {% set pct = item.percent_used %}
+        {% set bar_class = 'danger' if pct >= 80 else ('warn' if pct >= 50 else 'ok') %}
+        <tr>
+          <td>{{ item.name }}</td>
+          <td>{{ item.limit_value | commas }} {{ item.unit }}</td>
+          <td>{{ "%.2f"|format(item.kpis.month_usage) }}</td>
+          <td>{{ "%.2f"|format(item.usage_value) }}</td>
+          <td>
+            <div class="bar"><span class="{{ bar_class }}" style="width: {{ [pct, 100]|min }}%"></span></div>
+            <span style="font-size:0.85rem;">{{ "%.2f"|format(pct) }}%</span>
+          </td>
+          <td>
+            {% if pct >= 90 %}
+              <span class="badge critical">Critical</span>
+            {% elif pct >= 70 %}
+              <span class="badge warning">Warning</span>
+            {% elif pct >= 50 %}
+              <span class="badge info">Watch</span>
+            {% else %}
+              <span class="badge ok">OK</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Additional Metrics — Monitoring</h2>
+  <p style="color:var(--muted,#888);font-size:0.85rem;margin-top:-0.4rem;">Meters exposed by the Usage API but not billed on this contract (incl. LLM Proxy tokens). Tracked for awareness — no limit, no alerts.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Meter</th>
+          <th>Used (Month)</th>
+          <th>Used (Contract)</th>
+          <th>Unit</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in statuses if item.usage_model == 'MONITOR' %}
+        <tr>
+          <td>{{ item.name }}</td>
+          <td>{{ "%.2f"|format(item.kpis.month_usage) }}</td>
+          <td>{{ "%.2f"|format(item.usage_value) }}</td>
+          <td>{{ item.unit }}</td>
+          <td><span class="badge info">Monitor</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if activity %}
+<section>
+  <h2>Recent Activity <span class="muted" style="font-weight:normal;font-size:0.85rem;">(last 24h)</span></h2>
+  <div class="activity-feed" style="max-height:220px;overflow-y:auto;">
+    {% for item in activity %}
+    <div class="activity-item">
+      <span class="activity-icon badge {{ item.severity }}">{{ item.icon }}</span>
+      <div class="activity-body">
+        <span>{{ item.summary }}</span>
+        {% if item.env %}<span class="muted"> &mdash; {{ item.env }}</span>{% endif %}
+      </div>
+      <span class="activity-meta">
+        <span class="badge">{{ item.source }}</span>
+        <span class="muted">{{ item.time | audit_time }} <span class="muted">({{ item.time | audit_relative }})</span></span>
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  <p style="margin-top:8px;">
+    <a href="{{ url_for('inventory_changes_page') }}">All inventory changes</a>
+    &nbsp;&middot;&nbsp;
+    <a href="{{ url_for('audit_page', risky='1') }}">All risky audit events</a>
+  </p>
+</section>
+{% endif %}
+
+<section class="split">
+  <div>
+    <h2>Recent Jobs</h2>
+    <table>
+      <thead><tr><th>Job</th><th>Status</th><th>Started</th></tr></thead>
+      <tbody>
+      {% for job in jobs %}
+        <tr>
+          <td>{{ job.job_name }}</td>
+          <td><span class="badge {{ job.status }}">{{ job.status }}</span></td>
+          <td>{{ job.started_at_utc | audit_time }} ({{ job.started_at_utc | audit_relative }})</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  const timeseries = {{ timeseries | tojson }};
+  const budgets = {{ daily_budgets | tojson }};
+
+  function barColor(val, budget) {
+    if (!budget) return '#126b5b';
+    const ratio = val / budget;
+    if (ratio >= 1.5) return '#b42318';
+    if (ratio >= 1.0) return '#c2410c';
+    if (ratio >= 0.8) return '#ca8a04';
+    return '#126b5b';
+  }
+
+  function drawDailyChart(canvasId, meterKey, label) {
+    const el = document.getElementById(canvasId);
+    if (!el) return;
+    const data = timeseries[meterKey] || [];
+    const budget = budgets[meterKey] || 0;
+    const labels = data.map(d => d.date.slice(5));  // "MM-DD"
+    const values = data.map(d => d.value);
+    const colors = values.map(v => barColor(v, budget));
+
+    const datasets = [{
+      label: label,
+      data: values,
+      backgroundColor: colors,
+      borderRadius: 3,
+      barPercentage: 0.7
+    }];
+
+    // Budget line as a second dataset (horizontal line)
+    if (budget > 0 && data.length > 0) {
+      datasets.push({
+        label: 'Daily budget',
+        data: new Array(data.length).fill(budget),
+        type: 'line',
+        borderColor: '#b42318',
+        borderDash: [6, 4],
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: false
+      });
+    }
+
+    new Chart(el, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(v) {
+                if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M';
+                if (v >= 1000) return (v / 1000).toFixed(1) + 'K';
+                return v.toFixed(2);
+              }
+            }
+          }
+        },
+        plugins: {
+          legend: { display: true, position: 'bottom', labels: { boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                let v = ctx.raw;
+                if (v >= 1000000) return ctx.dataset.label + ': ' + (v / 1000000).toFixed(2) + 'M';
+                if (v >= 1000) return ctx.dataset.label + ': ' + (v / 1000).toFixed(1) + 'K';
+                return ctx.dataset.label + ': ' + v.toFixed(2);
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  drawDailyChart('chartMessages', 'mule_messages', 'Messages');
+  drawDailyChart('chartThroughput', 'data_throughput', 'Throughput (GB)');
+})();
+</script>
+{% endblock %}

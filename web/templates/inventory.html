@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="toolbar">
+  <button id="collect-inv-btn" onclick="collectInventory()">
+    <span id="collect-inv-label">Collect Inventory</span>
+    <span id="collect-inv-spinner" style="display:none;">
+      <svg width="14" height="14" viewBox="0 0 24 24" style="animation:spin 1s linear infinite;vertical-align:middle;">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31 31" stroke-linecap="round"/>
+      </svg>
+      Collecting…
+    </span>
+  </button>
+  <script>
+  function collectInventory() {
+    var btn = document.getElementById('collect-inv-btn');
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+    document.getElementById('collect-inv-label').style.display = 'none';
+    document.getElementById('collect-inv-spinner').style.display = 'inline';
+    fetch('{{ url_for("run_job", job_name="collect_inventory") }}', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' }
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.run_id) { window.location.reload(); return; }
+      pollJob(data.run_id);
+    }).catch(function() { window.location.reload(); });
+  }
+  function pollJob(runId) {
+    setTimeout(function() {
+      fetch('/jobs/' + runId + '/status')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.status === 'success' || data.status === 'failed' || data.status === 'error') {
+            window.location.reload();
+          } else {
+            pollJob(runId);
+          }
+        }).catch(function() { window.location.reload(); });
+    }, 2000);
+  }
+  </script>
+</section>
+
+<section class="summary-grid">
+  <div class="metric">
+    <span>Business Groups</span>
+    <strong>{{ counts.business_groups }}</strong>
+  </div>
+  <div class="metric">
+    <span>Environments</span>
+    <strong>{{ counts.environments }}</strong>
+  </div>
+  <div class="metric">
+    <span>Applications</span>
+    <strong>{{ counts.applications }}</strong>
+  </div>
+  <div class="metric">
+    <span>API Instances</span>
+    <strong>{{ counts.api_instances }}</strong>
+  </div>
+  <div class="metric">
+    <span>Changes (24h)</span>
+    <strong class="{{ 'warn' if counts.changes_24h > 0 else '' }}">{{ counts.changes_24h }}</strong>
+  </div>
+</section>
+
+{% if inventory.snapshot %}
+<section>
+  <h2>Snapshot</h2>
+  <p class="muted">
+    Run: <strong>{{ inventory.snapshot.run_id }}</strong> &mdash;
+    Collected: {{ inventory.snapshot.collected_at_utc }} &mdash;
+    Org: {{ inventory.snapshot.org_name or inventory.snapshot.org_id }}
+  </p>
+</section>
+{% else %}
+<section>
+  <p class="muted">No inventory collected yet. Run the <strong>Collect Inventory</strong> job from the <a href="{{ url_for('jobs') }}">Jobs</a> page.</p>
+</section>
+{% endif %}
+
+{% if inventory.business_groups %}
+<section>
+  <h2>Business Groups ({{ inventory.business_groups|length }})</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Path</th><th>Master</th><th>BG ID</th></tr></thead>
+      <tbody>
+      {% for bg in inventory.business_groups %}
+        <tr>
+          <td><strong>{{ bg.name }}</strong></td>
+          <td class="mono">{{ bg.bg_path }}</td>
+          <td>{{ "Yes" if bg.is_master else "" }}</td>
+          <td class="mono">{{ bg.bg_id }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if inventory.environments %}
+<section>
+  <h2>Environments ({{ inventory.environments|length }})</h2>
+  <div class="alert-filters" style="margin-bottom:10px;">
+    <a href="{{ url_for('inventory_page') }}" class="{{ 'active' if not current_env else '' }}">All</a>
+    {% for env in inventory.environments %}
+    <a href="{{ url_for('inventory_page', env=env.env_id) }}" class="{{ 'active' if current_env == env.env_id else '' }}">{{ env.bg_name }}/{{ env.name }}</a>
+    {% endfor %}
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Business Group</th><th>Name</th><th>Type</th><th>Production</th><th>Env ID</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for env in inventory.environments %}
+        <tr>
+          <td>{{ env.bg_name }}</td>
+          <td><strong>{{ env.name }}</strong></td>
+          <td><span class="badge">{{ env.env_type }}</span></td>
+          <td>{{ "Yes" if env.is_production else "No" }}</td>
+          <td class="mono">{{ env.env_id }}</td>
+          <td>
+            <form method="post" action="{{ url_for('runtime_env_stop_all') }}" style="display:inline;"
+                  onsubmit="return confirm('Stop ALL apps in {{ env.bg_name }}/{{ env.name }}?');">
+              <input type="hidden" name="org_id" value="{{ env.bg_id or env.org_id }}">
+              <input type="hidden" name="env_id" value="{{ env.env_id }}">
+              <button type="submit" class="btn-sm danger" title="Stop all apps in this environment">Stop All</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if inventory.applications %}
+<section>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <h2 style="margin:0;">Applications ({{ inventory.applications|length }})</h2>
+    <form method="post" action="{{ url_for('runtime_refresh_statuses') }}" style="display:inline;" id="refresh-form">
+      <button type="submit" class="btn-sm secondary" id="refresh-btn" title="Fetch live status for all apps from Anypoint">
+        <span id="refresh-label">Refresh Statuses</span>
+        <span id="refresh-spinner" style="display:none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" style="animation:spin 1s linear infinite;vertical-align:middle;">
+            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31 31" stroke-linecap="round"/>
+          </svg>
+          Refreshing…
+        </span>
+      </button>
+    </form>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    <script>
+    document.getElementById('refresh-form').addEventListener('submit',function(){
+      var btn=document.getElementById('refresh-btn');
+      btn.disabled=true;
+      btn.style.opacity='0.7';
+      document.getElementById('refresh-label').style.display='none';
+      document.getElementById('refresh-spinner').style.display='inline';
+    });
+    </script>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Domain</th><th>Source</th><th>Status</th><th>Workers</th><th>Mule</th><th>Region</th><th>Business Group</th><th>Environment</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for app in inventory.applications %}
+        {% set ns = namespace(env_name='') %}
+        {% for e in inventory.environments if e.env_id == app.env_id %}
+          {% set ns.env_name = e.name %}
+        {% endfor %}
+        {% set is_running = app.status in ('STARTED', 'RUNNING', 'DEPLOYING') %}
+        {% set can_manage = app.source in ('cloudhub', 'ch2') %}
+        <tr>
+          <td><strong>{{ app.domain }}</strong></td>
+          <td><span class="badge {{ 'running' if can_manage else '' }}">{{ app.source }}</span></td>
+          <td>
+            <span class="badge {{ 'ok' if app.status in ('STARTED', 'RUNNING') else 'warning' if app.status == 'DEPLOYING' else 'critical' if app.status in ('UNDEPLOYED', 'FAILED') else '' }}">
+              {{ app.status }}
+            </span>
+          </td>
+          <td>{{ app.worker_count }}{% if app.worker_size %} &times; {{ app.worker_size }}{% endif %}</td>
+          <td class="mono">{{ app.mule_version }}</td>
+          <td>{{ app.region }}</td>
+          <td>{{ app.bg_name }}</td>
+          <td>{{ ns.env_name or app.env_id }}</td>
+          <td>
+            {% if can_manage %}
+              {% if is_running %}
+              <form method="post" action="{{ url_for('runtime_app_stop') }}" style="display:inline;"
+                    onsubmit="return confirm('Stop {{ app.domain }}?');">
+                <input type="hidden" name="source" value="{{ app.source }}">
+                <input type="hidden" name="org_id" value="{{ app.bg_id }}">
+                <input type="hidden" name="env_id" value="{{ app.env_id }}">
+                <input type="hidden" name="domain" value="{{ app.domain }}">
+                <input type="hidden" name="deployment_id" value="{{ app._extra.deployment_id|default('', true) }}">
+                <button type="submit" class="btn-sm danger" title="Stop this app">Stop</button>
+              </form>
+              {% else %}
+              <form method="post" action="{{ url_for('runtime_app_start') }}" style="display:inline;"
+                    onsubmit="return confirm('Start {{ app.domain }}?');">
+                <input type="hidden" name="source" value="{{ app.source }}">
+                <input type="hidden" name="org_id" value="{{ app.bg_id }}">
+                <input type="hidden" name="env_id" value="{{ app.env_id }}">
+                <input type="hidden" name="domain" value="{{ app.domain }}">
+                <input type="hidden" name="deployment_id" value="{{ app._extra.deployment_id|default('', true) }}">
+                <button type="submit" class="btn-sm ok" title="Start this app">Start</button>
+              </form>
+              {% endif %}
+            {% else %}
+              <span class="muted">&mdash;</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if inventory.api_instances %}
+<section>
+  <h2>API Instances ({{ inventory.api_instances|length }})</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Asset</th><th>Label</th><th>Version</th><th>Technology</th><th>Endpoint</th><th>CloudHub</th><th>Business Group</th><th>Environment</th></tr></thead>
+      <tbody>
+      {% for api in inventory.api_instances %}
+        {% set ns = namespace(env_name='') %}
+        {% for e in inventory.environments if e.env_id == api.env_id %}
+          {% set ns.env_name = e.name %}
+        {% endfor %}
+        <tr>
+          <td><strong>{{ api.asset_id }}</strong></td>
+          <td>{{ api.instance_label }}</td>
+          <td class="mono">{{ api.asset_version }}</td>
+          <td><span class="badge">{{ api.technology }}</span></td>
+          <td class="mono" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;">{{ api.endpoint_uri }}</td>
+          <td>{{ "Yes" if api.is_cloudhub else "No" }}</td>
+          <td>{{ api.bg_name }}</td>
+          <td>{{ ns.env_name or api.env_id }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if changes %}
+<section>
+  <h2>Recent Changes</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Type</th><th>Entity</th><th>Key</th><th>Details</th><th>Detected</th></tr></thead>
+      <tbody>
+      {% for ch in changes %}
+        <tr>
+          <td>
+            <span class="badge {{ 'ok' if ch.change_type == 'added' else 'critical' if ch.change_type == 'removed' else 'warning' }}">
+              {{ ch.change_type }}
+            </span>
+          </td>
+          <td>{{ ch.entity_type }}</td>
+          <td class="mono">{{ ch.entity_key }}</td>
+          <td class="mono" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;">
+            {% if ch.change_type == 'changed' and ch.new %}
+              {% for k, v in ch.new.items() %}{{ k }}: {{ v }}{% if not loop.last %}, {% endif %}{% endfor %}
+            {% elif ch.change_type == 'added' and ch.new %}
+              added
+            {% elif ch.change_type == 'removed' %}
+              removed
+            {% endif %}
+          </td>
+          <td>{{ ch.detected_at_utc[:16] }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:8px;"><a href="{{ url_for('inventory_changes_page') }}">View all changes</a></p>
+</section>
+{% endif %}
+{% endblock %}

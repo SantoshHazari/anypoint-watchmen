@@ -1,0 +1,281 @@
+{
+  "run_id": "fixture-near_limit",
+  "host": "https://anypoint.mulesoft.com",
+  "collected_at_utc": "2026-05-15T00:00:00+00:00",
+  "window_utc": {
+    "start": "2026-05-04T00:00:00+00:00",
+    "end": "2026-05-11T23:59:59+00:00"
+  },
+  "timeseries": "P1D",
+  "dimensions": true,
+  "fixture": true,
+  "scenario": "near_limit",
+  "results": [
+    {
+      "key": "mule_flows",
+      "meter": "runtime_flow_count",
+      "measurement": "mule_flow_count",
+      "query": "SELECT org_name, env_name, env_type, app_name, deployment_model, mule_flow_count, max_concurrent_time FROM runtime_flow_count WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": [
+          {
+            "timestamp": 1778457600000,
+            "org_name": "Example-Org",
+            "env_name": "demo-nonprod",
+            "env_type": "Sandbox",
+            "app_name": "demo-order-api",
+            "deployment_model": "CloudHub 2.0",
+            "mule_flow_count": 170.0,
+            "max_concurrent_time": 1778457600000
+          }
+        ]
+      }
+    },
+    {
+      "key": "mule_messages",
+      "meter": "runtime_mule_message_count",
+      "measurement": "mule_message_count",
+      "query": "SELECT org_name, env_name, env_type, app_name, deployment_model, mule_message_count FROM runtime_mule_message_count WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": [
+          {
+            "timestamp": 1778457600000,
+            "org_name": "Example-Org",
+            "env_name": "demo-nonprod",
+            "env_type": "Sandbox",
+            "app_name": "demo-order-api",
+            "deployment_model": "CloudHub 2.0",
+            "mule_message_count": 18500000.0
+          }
+        ]
+      }
+    },
+    {
+      "key": "data_throughput",
+      "meter": "runtime_network_bytes_count",
+      "measurement": "network_bytes_count",
+      "query": "SELECT org_name, env_name, env_type, app_name, deployment_model, network_bytes_count FROM runtime_network_bytes_count WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": [
+          {
+            "timestamp": 1778457600000,
+            "org_name": "Example-Org",
+            "env_name": "demo-nonprod",
+            "env_type": "Sandbox",
+            "app_name": "demo-order-api",
+            "deployment_model": "CloudHub 2.0",
+            "network_bytes_count": 39728447488000
+          }
+        ]
+      }
+    },
+    {
+      "key": "api_manager_prod",
+      "meter": "api_manager_api_instance_count_prod",
+      "measurement": "managed_api_count",
+      "query": "SELECT org_name, env_type, runtime, managed_api_count, max_concurrent_time FROM api_manager_api_instance_count_prod WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": [
+          {
+            "timestamp": 1778457600000,
+            "org_name": "Example-Org",
+            "env_type": "Production",
+            "runtime": "Mule Gateway",
+            "managed_api_count": 9.0,
+            "max_concurrent_time": 1778457600000
+          }
+        ]
+      }
+    },
+    {
+      "key": "api_manager_preprod",
+      "meter": "api_manager_api_instance_count_preprod",
+      "measurement": "managed_api_count",
+      "query": "SELECT org_name, env_type, runtime, managed_api_count, max_concurrent_time FROM api_manager_api_instance_count_preprod WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": [
+          {
+            "timestamp": 1778457600000,
+            "org_name": "Example-Org",
+            "env_type": "Sandbox",
+            "runtime": "Mule Gateway",
+            "managed_api_count": 9.0,
+            "max_concurrent_time": 1778457600000
+          }
+        ]
+      }
+    },
+    {
+      "key": "api_manager_unclassified",
+      "meter": "api_manager_api_instance_count_unclassified",
+      "measurement": "managed_api_count",
+      "query": "SELECT org_name, env_type, runtime, managed_api_count, max_concurrent_time FROM api_manager_api_instance_count_unclassified WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "governed_apis",
+      "meter": "governed_api_count",
+      "measurement": "governed_api_count",
+      "query": "SELECT org_name, governed_api_count, max_concurrent_time FROM governed_api_count WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": [
+          {
+            "timestamp": 1778457600000,
+            "org_name": "Example-Org",
+            "governed_api_count": 9.0,
+            "max_concurrent_time": 1778457600000
+          }
+        ]
+      }
+    },
+    {
+      "key": "flex_gateway_api_calls",
+      "meter": "flex_api_call_count",
+      "measurement": "api_call_count",
+      "query": "SELECT org_name, env_name, deployment_mode, asset_name, api_call_count FROM flex_api_call_count WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": [
+          {
+            "timestamp": 1778457600000,
+            "org_name": "Example-Org",
+            "env_name": "demo-nonprod",
+            "deployment_mode": "managed",
+            "asset_name": "demo-flex-gateway",
+            "api_call_count": 18500000.0
+          }
+        ]
+      }
+    },
+    {
+      "key": "object_store_effective_api_requests",
+      "meter": "object_store_effective_api_requests_count",
+      "measurement": "effective_api_requests",
+      "query": "SELECT org_name, env_name, region_id, store_id, effective_api_requests FROM object_store_effective_api_requests_count WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": [
+          {
+            "timestamp": 1778457600000,
+            "org_name": "Example-Org",
+            "env_name": "demo-nonprod",
+            "region_id": "us-east-1",
+            "store_id": "demo-object-store",
+            "effective_api_requests": 85000000.0
+          }
+        ]
+      }
+    },
+    {
+      "key": "anypoint_mq_api_requests",
+      "meter": "anypoint_mq_api_requests_count",
+      "measurement": "api_requests",
+      "query": "SELECT org_name, env_name, region_id, object_type, object_name, api_requests FROM anypoint_mq_api_requests_count WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": [
+          {
+            "timestamp": 1778457600000,
+            "org_name": "Example-Org",
+            "env_name": "demo-nonprod",
+            "region_id": "us-east-1",
+            "object_type": "QUEUE",
+            "object_name": "demo-queue",
+            "api_requests": 440000000.0
+          }
+        ]
+      }
+    },
+    {
+      "key": "anypoint_mq_message_units",
+      "meter": "anypoint_mq_message_units_count",
+      "measurement": "message_units",
+      "query": "SELECT org_name, env_name, region_id, object_type, object_name, message_units FROM anypoint_mq_message_units_count WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "idp_processed_pages",
+      "meter": "idp_processed_pages",
+      "measurement": "processed_pages",
+      "query": "SELECT org_name, execution_type, processed_pages FROM idp_processed_pages WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "composer_tasks",
+      "meter": "composer_num_tasks",
+      "measurement": "num_tasks",
+      "query": "SELECT asset_id, num_tasks FROM composer_num_tasks WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": []
+      }
+    },
+    {
+      "key": "rpa_bot_minutes",
+      "meter": "rpa_bot_session_minutes",
+      "measurement": "bot_usage",
+      "query": "SELECT process_id, bot_usage FROM rpa_bot_session_minutes WHERE timestamp between 1777852800000 and 1778543999000 TIMESERIES P1D",
+      "ok": true,
+      "response": {
+        "metadata": {
+          "responseAsOf": "2026-05-15T00:00:00Z"
+        },
+        "data": []
+      }
+    }
+  ]
+}

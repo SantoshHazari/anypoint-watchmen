@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Alerts</h2>
+  <div class="alert-filters">
+    <a href="{{ url_for('alerts_page') }}" class="{{ 'active' if not current_filter else '' }}">All ({{ counts.get('total', 0) }})</a>
+    <a href="{{ url_for('alerts_page', state='open') }}" class="{{ 'active' if current_filter == 'open' else '' }}">Open ({{ counts.get('open', 0) }})</a>
+    <a href="{{ url_for('alerts_page', state='acknowledged') }}" class="{{ 'active' if current_filter == 'acknowledged' else '' }}">Acknowledged ({{ counts.get('acknowledged', 0) }})</a>
+    <a href="{{ url_for('alerts_page', state='resolved') }}" class="{{ 'active' if current_filter == 'resolved' else '' }}">Resolved ({{ counts.get('resolved', 0) }})</a>
+    <a href="{{ url_for('alerts_page', state='suppressed') }}" class="{{ 'active' if current_filter == 'suppressed' else '' }}">Suppressed ({{ counts.get('suppressed', 0) }})</a>
+  </div>
+</section>
+
+<section>
+  {% if alerts %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Severity</th>
+          <th>State</th>
+          <th>Rule</th>
+          <th>Title</th>
+          <th>Entitlement</th>
+          <th>Updated</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for alert in alerts %}
+        <tr>
+          <td><span class="badge {{ alert.severity }}">{{ alert.severity }}</span></td>
+          <td><span class="badge {{ alert.state }}">{{ alert.state }}</span></td>
+          <td class="mono">{{ alert.rule }}</td>
+          <td><a href="{{ url_for('alert_detail', alert_id=alert.id) }}">{{ alert.title }}</a></td>
+          <td>{{ alert.entitlement_key or "—" }}</td>
+          <td>{{ alert.updated_at_utc[:16] }}</td>
+          <td class="alert-actions">
+            {% if alert.state == 'open' %}
+            <form method="post" action="{{ url_for('alert_change_state', alert_id=alert.id) }}">
+              <input type="hidden" name="state" value="acknowledged">
+              <button type="submit" class="btn-sm">Ack</button>
+            </form>
+            <form method="post" action="{{ url_for('alert_change_state', alert_id=alert.id) }}">
+              <input type="hidden" name="state" value="suppressed">
+              <button type="submit" class="btn-sm secondary">Suppress</button>
+            </form>
+            {% elif alert.state == 'acknowledged' %}
+            <form method="post" action="{{ url_for('alert_change_state', alert_id=alert.id) }}">
+              <input type="hidden" name="state" value="resolved">
+              <button type="submit" class="btn-sm">Resolve</button>
+            </form>
+            {% elif alert.state == 'resolved' or alert.state == 'suppressed' %}
+            <form method="post" action="{{ url_for('alert_change_state', alert_id=alert.id) }}">
+              <input type="hidden" name="state" value="open">
+              <button type="submit" class="btn-sm secondary">Reopen</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No alerts{% if current_filter %} with state "{{ current_filter }}"{% endif %}.</p>
+  {% endif %}
+</section>
+{% endblock %}

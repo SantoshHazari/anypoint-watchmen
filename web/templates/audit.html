@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="toolbar">
+  <form method="post" action="{{ url_for('run_job', job_name='collect_audit') }}">
+    <button type="submit">Collect Audit Events</button>
+  </form>
+  <a class="button-link btn-tier-all {{ 'active' if current_filter == 'all' else '' }}" href="{{ url_for('audit_page', tier='all', user=current_user or None, bg=current_bg or None) }}">All</a>
+  <a class="button-link btn-tier-critical {{ 'active' if current_filter == 'critical' else '' }}" href="{{ url_for('audit_page', tier='critical', user=current_user or None, bg=current_bg or None) }}">Critical</a>
+  <a class="button-link btn-tier-warning {{ 'active' if current_filter == 'warning' else '' }}" href="{{ url_for('audit_page', tier='warning', user=current_user or None, bg=current_bg or None) }}">Warning</a>
+  <a class="button-link btn-tier-risky {{ 'active' if current_filter == 'risky' else '' }}" href="{{ url_for('audit_page', risky='1', user=current_user or None, bg=current_bg or None) }}">All Risky</a>
+  <span style="margin-left:auto;display:flex;align-items:center;gap:1rem;">
+    <span style="display:flex;align-items:center;gap:0.4rem;">
+      <label for="bg-filter" style="font-size:0.85rem;color:var(--muted);">BG:</label>
+      <select id="bg-filter" class="settings-input" style="max-width:200px;padding:0.3rem 0.5rem;" onchange="applyFilter('bg', this.value)">
+        <option value="">All</option>
+        {% for b in bgs %}
+        <option value="{{ b }}" {{ 'selected' if current_bg == b else '' }}>{{ b }}</option>
+        {% endfor %}
+      </select>
+    </span>
+    <span style="display:flex;align-items:center;gap:0.4rem;">
+      <label for="user-filter" style="font-size:0.85rem;color:var(--muted);">User:</label>
+      <select id="user-filter" class="settings-input" style="max-width:200px;padding:0.3rem 0.5rem;" onchange="applyFilter('user', this.value)">
+        <option value="">All</option>
+        {% for u in users %}
+        <option value="{{ u }}" {{ 'selected' if current_user == u else '' }}>{{ u }}</option>
+        {% endfor %}
+      </select>
+    </span>
+  </span>
+</section>
+
+<section class="summary-grid">
+  <div class="metric">
+    <span>Total Events</span>
+    <strong>{{ counts.total }}</strong>
+  </div>
+  <div class="metric">
+    <span>Critical</span>
+    <strong class="{{ 'danger' if counts.critical > 0 else '' }}">{{ counts.critical }}</strong>
+  </div>
+  <div class="metric">
+    <span>Warning</span>
+    <strong class="{{ 'warn' if counts.warning > 0 else '' }}">{{ counts.warning }}</strong>
+  </div>
+  <div class="metric">
+    <span>Recent 24h</span>
+    <strong>{{ counts.recent_24h }}</strong>
+  </div>
+</section>
+
+<section>
+  <h2>Audit Events</h2>
+  <div style="margin-bottom:0.75rem;display:flex;align-items:center;gap:0.75rem;">
+    <input type="text" id="audit-search" placeholder="Search events..." class="settings-input" style="max-width:350px;">
+    <span id="audit-match-count" class="muted" style="white-space:nowrap;"></span>
+  </div>
+  <div class="table-wrap">
+    <table id="audit-table">
+      <thead>
+        <tr>
+          <th class="sortable" data-col="0" data-type="text">Risk <span class="sort-arrow"></span></th>
+          <th class="sortable" data-col="1" data-type="date">Time <span class="sort-arrow"></span></th>
+          <th class="sortable" data-col="2" data-type="text">BG <span class="sort-arrow"></span></th>
+          <th class="sortable" data-col="3" data-type="text">Product <span class="sort-arrow"></span></th>
+          <th class="sortable" data-col="4" data-type="text">Action <span class="sort-arrow"></span></th>
+          <th class="sortable" data-col="5" data-type="text">Object <span class="sort-arrow"></span></th>
+          <th class="sortable" data-col="6" data-type="text">Name <span class="sort-arrow"></span></th>
+          <th class="sortable" data-col="7" data-type="text">User <span class="sort-arrow"></span></th>
+          <th class="sortable" data-col="8" data-type="text">Environment <span class="sort-arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for event in events %}
+        {% set tier = event.risk_tier if event.risk_tier is defined else ('warning' if event.risky else 'info') %}
+        {% set raw_time = (event.event_time_utc or event.inserted_at_utc or '') %}
+        <tr data-sort-date="{{ raw_time }}">
+          <td>
+            <span class="badge {{ 'critical' if tier == 'critical' else 'warning' if tier == 'warning' else 'ok' }}">
+              {{ tier }}
+            </span>
+          </td>
+          <td style="white-space:nowrap;" title="{{ raw_time }}">
+            {{ raw_time | audit_time }}
+            <span class="muted">({{ raw_time | audit_relative }})</span>
+          </td>
+          <td>{{ event.bg_name or '' }}</td>
+          <td>{{ event.product }}</td>
+          <td><strong>{{ event.action }}</strong>{% if event.subaction is defined and event.subaction %} <span class="muted">({{ event.subaction }})</span>{% endif %}</td>
+          <td>{{ event.object_type }}</td>
+          <td>{{ event.object_name or event.object_id }}</td>
+          <td>{{ event.user_name or event.connected_app }}</td>
+          <td>{{ event.env_name or event.env_id }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="9">No audit events collected yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<style>
+  .sortable { cursor: pointer; user-select: none; }
+  .sortable:hover { background: var(--bg); }
+  .sort-arrow { font-size: 10px; margin-left: 3px; color: var(--muted); }
+  .sort-arrow.asc::after { content: "\25B2"; }
+  .sort-arrow.desc::after { content: "\25BC"; }
+  tr.hidden-row { display: none; }
+</style>
+
+<script src="{{ url_for('static', filename='audit.js') }}"></script>
+{% endblock %}

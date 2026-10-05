@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Alert #{{ alert.id }}</h2>
+  <div class="detail-grid">
+    <div class="detail-row">
+      <span class="detail-label">Severity</span>
+      <span class="badge {{ alert.severity }}">{{ alert.severity }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">State</span>
+      <span class="badge {{ alert.state }}">{{ alert.state }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Rule</span>
+      <span>{{ alert.rule }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Title</span>
+      <span>{{ alert.title }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Detail</span>
+      <span>{{ alert.detail or "—" }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Entitlement</span>
+      <span>{{ alert.entitlement_key or "—" }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Alert Key</span>
+      <span class="mono">{{ alert.alert_key }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Created</span>
+      <span>{{ alert.created_at_utc }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Updated</span>
+      <span>{{ alert.updated_at_utc }}</span>
+    </div>
+    {% if alert.resolved_at_utc %}
+    <div class="detail-row">
+      <span class="detail-label">Resolved</span>
+      <span>{{ alert.resolved_at_utc }}</span>
+    </div>
+    {% endif %}
+    <div class="detail-row">
+      <span class="detail-label">Run ID</span>
+      <span class="mono">{{ alert.run_id or "—" }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Notified</span>
+      <span>{{ "Yes" if alert.notified else "No" }}</span>
+    </div>
+  </div>
+</section>
+
+<section class="toolbar">
+  {% if alert.state == 'open' %}
+  <form method="post" action="{{ url_for('alert_change_state', alert_id=alert.id) }}">
+    <input type="hidden" name="state" value="acknowledged">
+    <button type="submit">Acknowledge</button>
+  </form>
+  <form method="post" action="{{ url_for('alert_change_state', alert_id=alert.id) }}">
+    <input type="hidden" name="state" value="resolved">
+    <button type="submit" class="secondary">Resolve</button>
+  </form>
+  <form method="post" action="{{ url_for('alert_change_state', alert_id=alert.id) }}">
+    <input type="hidden" name="state" value="suppressed">
+    <button type="submit" class="secondary">Suppress</button>
+  </form>
+  {% elif alert.state == 'acknowledged' %}
+  <form method="post" action="{{ url_for('alert_change_state', alert_id=alert.id) }}">
+    <input type="hidden" name="state" value="resolved">
+    <button type="submit">Resolve</button>
+  </form>
+  <form method="post" action="{{ url_for('alert_change_state', alert_id=alert.id) }}">
+    <input type="hidden" name="state" value="suppressed">
+    <button type="submit" class="secondary">Suppress</button>
+  </form>
+  {% elif alert.state == 'resolved' or alert.state == 'suppressed' %}
+  <form method="post" action="{{ url_for('alert_change_state', alert_id=alert.id) }}">
+    <input type="hidden" name="state" value="open">
+    <button type="submit" class="secondary">Reopen</button>
+  </form>
+  {% endif %}
+  <a href="{{ url_for('alerts_page') }}">Back to alerts</a>
+</section>
+
+{% if alert.payload %}
+<section>
+  <h2>Payload</h2>
+  <pre class="code-block">{{ alert.payload | tojson(indent=2) }}</pre>
+</section>
+{% endif %}
+{% endblock %}

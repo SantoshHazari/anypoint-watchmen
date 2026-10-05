@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Usage Alert Thresholds</h2>
+  <p style="color:var(--muted);margin-bottom:1rem;">Percentage thresholds at which usage alerts are triggered. Applies to all entitlement meters (Mule Messages, Data Throughput, etc.).</p>
+  <div class="detail-grid" id="view-policy">
+    <div class="detail-row">
+      <span class="detail-label">Alert at</span>
+      <span>{{ entitlements.get('policy', {}).get('default_thresholds_percent', []) | join('%, ') }}{% if entitlements.get('policy', {}).get('default_thresholds_percent') %}%{% endif %}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label"></span>
+      <button type="button" onclick="toggleEdit('policy')">Edit</button>
+    </div>
+  </div>
+  <div class="detail-grid" id="edit-policy" style="display:none">
+    <form method="POST" action="{{ url_for('settings_update_policy') }}">
+      <div class="detail-row">
+        <span class="detail-label">Alert at</span>
+        <input type="text" name="default_thresholds_percent" class="settings-input" value="{{ entitlements.get('policy', {}).get('default_thresholds_percent', []) | join(', ') }}" placeholder="50, 70, 80, 90, 95">
+      </div>
+      <div class="detail-row">
+        <span class="detail-label"></span>
+        <div class="toolbar">
+          <button type="submit">Save</button>
+          <button type="button" class="secondary" onclick="toggleEdit('policy')">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section>
+  <h2>Entitlement Limits</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Key</th>
+          <th>Limit</th>
+          <th>Usage Model</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for limit in entitlements.get('limits', []) %}
+        <tr id="view-limit-{{ limit.key }}">
+          <td>{{ limit.name }}</td>
+          <td class="mono">{{ limit.key }}</td>
+          <td>{{ "{:,.0f}".format(limit.limit) }} {{ limit.unit }}</td>
+          <td><span class="badge">{{ limit.usage_model }}</span></td>
+          <td><span class="badge {{ 'warning' if 'provisional' in limit.status else 'ok' }}">{{ limit.status }}</span></td>
+          <td><button class="btn-sm" onclick="toggleEditLimit('{{ limit.key }}')">Edit</button></td>
+        </tr>
+        <tr id="edit-limit-{{ limit.key }}" style="display:none">
+          <td colspan="6">
+            <form method="POST" action="{{ url_for('settings_update_limit', limit_key=limit.key) }}" class="inline-edit">
+              <strong>{{ limit.name }}:</strong>
+              <input type="number" name="limit" value="{{ limit.limit }}" step="any" class="settings-input settings-input-sm" required>
+              <span>{{ limit.unit }}</span>
+              <label>Status:</label>
+              <input type="text" name="status" value="{{ limit.status }}" class="settings-input settings-input-sm" required>
+              <button type="submit" class="btn-sm">Save</button>
+              <button type="button" class="btn-sm secondary" onclick="toggleEditLimit('{{ limit.key }}')">Cancel</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Contract & Alert Settings</h2>
+  <div class="detail-grid" id="view-system">
+    <div class="detail-row">
+      <span class="detail-label">Contract Start</span>
+      <span>{{ settings.get('contract', {}).get('start_date', '—') }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Contract End</span>
+      <span>{{ settings.get('contract', {}).get('end_date', '—') }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Contract Status</span>
+      <span>{{ settings.get('contract', {}).get('status', '—') }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Alert Channels</span>
+      <span>{{ settings.get('alerts', {}).get('enabled_channels', []) | join(', ') }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Email To</span>
+      <span>{{ settings.get('alerts', {}).get('email', {}).get('to', []) | join(', ') }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label"></span>
+      <button type="button" onclick="toggleEdit('system')">Edit</button>
+    </div>
+  </div>
+  <div class="detail-grid" id="edit-system" style="display:none">
+    <form method="POST" action="{{ url_for('settings_update_system') }}">
+      <div class="detail-row">
+        <span class="detail-label">Contract Start</span>
+        <input type="date" name="start_date" class="settings-input" value="{{ settings.get('contract', {}).get('start_date', '') }}" required>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Contract End</span>
+        <input type="date" name="end_date" class="settings-input" value="{{ settings.get('contract', {}).get('end_date', '') }}" required>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Email To</span>
+        <input type="text" name="email_to" class="settings-input" value="{{ settings.get('alerts', {}).get('email', {}).get('to', []) | join(', ') }}" placeholder="user@example.com, other@example.com">
+      </div>
+      <div class="detail-row">
+        <span class="detail-label"></span>
+        <div class="toolbar">
+          <button type="submit">Save</button>
+          <button type="button" class="secondary" onclick="toggleEdit('system')">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section>
+  <h2>Scheduler</h2>
+  {% set sched = settings.get('scheduler', {}) %}
+  {% set sched_status = scheduler_status or {} %}
+  <div class="detail-grid" id="view-scheduler">
+    <div class="detail-row">
+      <span class="detail-label">Status</span>
+      <span class="badge {{ 'ok' if sched_status.get('enabled') else 'warning' }}">
+        {{ 'Running' if sched_status.get('enabled') else 'Stopped' }}
+      </span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Interval</span>
+      <span>{{ sched.get('interval_value', 12) }} {{ sched.get('interval_unit', 'hours') }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Next Run</span>
+      <span>{{ sched_status.get('next_run_at', '—') }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Last Run ID</span>
+      <span class="mono">{{ sched_status.get('last_run_id', '—') }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label"></span>
+      <div class="toolbar">
+        <button type="button" onclick="toggleEdit('scheduler')">Edit Interval</button>
+        {% if sched_status.get('enabled') %}
+          <form method="POST" action="{{ url_for('scheduler_stop') }}" style="display:inline">
+            <button type="submit" class="secondary">Stop Scheduler</button>
+          </form>
+        {% else %}
+          <form method="POST" action="{{ url_for('scheduler_start') }}" style="display:inline">
+            <button type="submit">Start Scheduler</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="detail-grid" id="edit-scheduler" style="display:none">
+    <form method="POST" action="{{ url_for('settings_update_scheduler') }}">
+      <div class="detail-row">
+        <span class="detail-label">Run every</span>
+        <div class="toolbar">
+          <input type="number" name="interval_value" class="settings-input settings-input-sm" value="{{ sched.get('interval_value', 12) }}" min="5" required>
+          <select name="interval_unit" class="settings-input">
+            <option value="minutes" {% if sched.get('interval_unit') == 'minutes' %}selected{% endif %}>minutes</option>
+            <option value="hours" {% if sched.get('interval_unit', 'hours') == 'hours' %}selected{% endif %}>hours</option>
+            <option value="days" {% if sched.get('interval_unit') == 'days' %}selected{% endif %}>days</option>
+          </select>
+        </div>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label"></span>
+        <div class="toolbar">
+          <button type="submit">Save</button>
+          <button type="button" class="secondary" onclick="toggleEdit('scheduler')">Cancel</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section id="audit-rules">
+  <h2>Audit Risk Rules</h2>
+  <p style="color:var(--text-secondary);margin-bottom:1.5rem;">
+    Controls what Anypoint audit events are monitored and how they are classified.
+  </p>
+
+  {% set exclude_actions = settings.get('audit', {}).get('exclude_actions', []) %}
+
+  <div style="margin-bottom:2rem;">
+    <h3 style="margin-bottom:0.25rem;">Excluded at API level</h3>
+    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:0.6rem;">
+      These actions are never downloaded from Anypoint — filtered before storage.
+    </p>
+    <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.75rem;">
+      {% for action in exclude_actions %}
+      <form method="POST" action="{{ url_for('exclude_actions_remove') }}" style="display:inline">
+        <input type="hidden" name="action" value="{{ action }}">
+        <button type="submit" class="badge-removable" title="Click to remove">{{ action }} &times;</button>
+      </form>
+      {% endfor %}
+      {% if not exclude_actions %}
+      <span style="color:var(--text-secondary);font-style:italic;">Nothing excluded</span>
+      {% endif %}
+    </div>
+    <form method="POST" action="{{ url_for('exclude_actions_add') }}" class="inline-edit" style="display:flex;gap:0.5rem;align-items:center;">
+      <input type="text" name="action" class="settings-input settings-input-sm" placeholder="action to exclude (e.g. permissions change)" style="width:260px;" required>
+      <button type="submit" class="btn-sm">Add</button>
+    </form>
+  </div>
+
+  {% for tier in ['critical', 'warning'] %}
+  <div style="margin-bottom:1.75rem;">
+    <h3 style="margin-bottom:0.25rem;">
+      <span class="badge {{ tier }}">{{ tier | upper }}</span>
+    </h3>
+    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:0.5rem;">
+      {% if tier == 'critical' %}Any of these triggers an immediate alert.
+      {% else %}These are flagged as notable but lower-priority events.{% endif %}
+    </p>
+
+    <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.4rem;">
+      <span style="font-size:0.8rem;color:var(--text-secondary);align-self:center;margin-right:0.25rem;">Actions:</span>
+      {% for action in audit_rules.get('actions', {}).get(tier, []) %}
+      <form method="POST" action="{{ url_for('audit_rules_remove') }}" style="display:inline">
+        <input type="hidden" name="tier" value="{{ tier }}">
+        <input type="hidden" name="rule_type" value="action">
+        <input type="hidden" name="action" value="{{ action }}">
+        <button type="submit" class="badge {{ tier }}" style="cursor:pointer;border:none;" title="Click to remove">{{ action }} &times;</button>
+      </form>
+      {% endfor %}
+      {% if not audit_rules.get('actions', {}).get(tier, []) %}
+      <span style="color:var(--text-secondary);font-style:italic;font-size:0.85rem;">none</span>
+      {% endif %}
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.4rem;">
+      <span style="font-size:0.8rem;color:var(--text-secondary);align-self:center;margin-right:0.25rem;">Combos:</span>
+      {% for combo in audit_rules.get('combos', {}).get(tier, []) %}
+      <form method="POST" action="{{ url_for('audit_rules_remove') }}" style="display:inline">
+        <input type="hidden" name="tier" value="{{ tier }}">
+        <input type="hidden" name="rule_type" value="combo">
+        <input type="hidden" name="action" value="{{ combo.action }}">
+        <input type="hidden" name="target" value="{{ combo.target }}">
+        <button type="submit" class="badge {{ tier }}" style="cursor:pointer;border:none;" title="Click to remove">{{ combo.action }} → {{ combo.target }} &times;</button>
+      </form>
+      {% endfor %}
+      {% if not audit_rules.get('combos', {}).get(tier, []) %}
+      <span style="color:var(--text-secondary);font-style:italic;font-size:0.85rem;">none</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <h3 style="margin-bottom:0.5rem;">Add Alert Rule</h3>
+  <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:0.5rem;">
+    For combos, the target must match Anypoint's exact object_type string (case-insensitive), e.g. <code>api (in environment)</code>.
+  </p>
+  <form method="POST" action="{{ url_for('audit_rules_add') }}" class="inline-edit" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+    <select name="tier" class="settings-input" style="width:auto;" required>
+      <option value="critical">Critical</option>
+      <option value="warning" selected>Warning</option>
+    </select>
+    <select name="rule_type" class="settings-input" style="width:auto;" id="audit-rule-type" onchange="document.getElementById('audit-target').style.display = this.value === 'combo' ? '' : 'none';">
+      <option value="action">Action</option>
+      <option value="combo">Combo</option>
+    </select>
+    <input type="text" name="action" class="settings-input settings-input-sm" placeholder="action (e.g. delete)" required>
+    <input type="text" name="target" class="settings-input settings-input-sm" placeholder="target object_type" id="audit-target" style="display:none;">
+    <button type="submit" class="btn-sm">Add</button>
+  </form>
+</section>
+
+<section>
+  <h2>Raw Configuration</h2>
+  <pre class="code-block">{{ settings | tojson(indent=2) }}</pre>
+</section>
+
+<script>
+function toggleEdit(section) {
+  var view = document.getElementById('view-' + section);
+  var edit = document.getElementById('edit-' + section);
+  var hidden = edit.style.display === 'none';
+  view.style.display = hidden ? 'none' : '';
+  edit.style.display = hidden ? '' : 'none';
+}
+function toggleEditLimit(key) {
+  var view = document.getElementById('view-limit-' + key);
+  var edit = document.getElementById('edit-limit-' + key);
+  var hidden = edit.style.display === 'none';
+  view.style.display = hidden ? 'none' : '';
+  edit.style.display = hidden ? '' : 'none';
+}
+</script>
+{% endblock %}

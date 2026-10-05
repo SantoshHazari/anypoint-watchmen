@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="toolbar">
+  <a href="{{ url_for('jobs') }}">&larr; Back to Jobs</a>
+</section>
+
+<section>
+  <h2>Job Detail</h2>
+  <div class="detail-grid">
+    <div class="detail-row">
+      <span class="detail-label">Run ID</span>
+      <span class="mono">{{ job.run_id }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Job</span>
+      <span>{{ job.job_name }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Status</span>
+      <span><span class="badge {{ job.status }}">{{ job.status }}</span></span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Requested By</span>
+      <span>{{ job.requested_by }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Started</span>
+      <span>{{ job.started_at_utc }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Finished</span>
+      <span>{{ job.finished_at_utc or "—" }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Duration</span>
+      <span>{{ "%.2f"|format(job.duration_seconds or 0) }}s</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Summary</h2>
+  <pre class="code-block">{{ job.summary_json }}</pre>
+</section>
+
+{% if job.error %}
+<section>
+  <h2>Error</h2>
+  <pre class="code-block error-block">{{ job.error }}</pre>
+</section>
+{% endif %}
+{% endblock %}

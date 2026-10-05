@@ -1,0 +1,23 @@
+# Credentials — never commit
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Runtime data (each machine collects its own)
+data/*.sqlite
+data/*.db
+data/*.log
+data/*.err
+data/raw/
+data/alerts/
+data/scheduler_state.json
+
+# Contract documents
+*.pdf
+
+# Third-party partner document (vendor-confidential)
+docs/FY26_MuleSoft_Partner_Entitlement_FAQs_extracted.txt

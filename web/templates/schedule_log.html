@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <h2 style="margin:0;">Schedule Audit Log</h2>
+    <a href="{{ url_for('schedules_page') }}" class="btn-sm secondary">Back to Schedules</a>
+  </div>
+
+  {# Build env/bg lookup from environments list #}
+  {% set env_map = {} %}
+  {% for e in environments %}
+    {% set _ = env_map.update({e.env_id: {"name": e.name, "bg": e.bg_name or e.bg_id}}) %}
+  {% endfor %}
+
+  {% if logs %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Time (UTC)</th><th>Action</th><th>Trigger</th><th>Type</th><th>Source</th><th>BG</th><th>Environment</th><th>Domain</th><th>OK</th><th>Detail</th></tr></thead>
+      <tbody>
+      {% for l in logs %}
+        {% set env_info = env_map.get(l.env_id, {}) %}
+        <tr>
+          <td class="mono"><span class="time-ago" data-utc="{{ l.timestamp_utc }}">{{ l.timestamp_utc[:19] }}</span></td>
+          <td><span class="badge {{ 'ok' if l.action == 'start' else 'critical' }}">{{ l.action }}</span></td>
+          <td><span class="badge">{{ l.trigger_type }}</span></td>
+          <td>{{ l.target_type }}</td>
+          <td><span class="badge">{{ l.source }}</span></td>
+          <td>{{ env_info.get("bg", l.org_id[:12] if l.org_id else "-") }}</td>
+          <td>{{ env_info.get("name", l.env_id[:12] if l.env_id else "-") }}</td>
+          <td><strong>{{ l.domain or '-' }}</strong></td>
+          <td><span class="badge {{ 'ok' if l.ok else 'critical' }}">{{ "Yes" if l.ok else "No" }}</span></td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;">{{ l.detail }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No schedule log entries yet.</p>
+  {% endif %}
+</section>
+
+<script>
+(function(){
+  function timeAgo(isoStr){
+    var d = new Date(isoStr.replace(" ","T") + (isoStr.indexOf("Z")>-1||isoStr.indexOf("+")>-1 ? "" : "Z"));
+    var diff = Math.floor((Date.now() - d) / 1000);
+    if(diff < 5) return "just now";
+    if(diff < 60) return diff + "s ago";
+    var m = Math.floor(diff/60);
+    if(m < 60) return m + "m ago";
+    var h = Math.floor(m/60);
+    if(h < 24) return h + "h " + (m%60) + "m ago";
+    var days = Math.floor(h/24);
+    return days + "d " + (h%24) + "h ago";
+  }
+  document.querySelectorAll(".time-ago").forEach(function(el){
+    var utc = el.dataset.utc;
+    if(!utc) return;
+    var ago = timeAgo(utc);
+    el.innerHTML = el.textContent + " <span style='color:var(--muted);font-size:.85em;'>(" + ago + ")</span>";
+  });
+})();
+</script>
+
+{% endblock %}
