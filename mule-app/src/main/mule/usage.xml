@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!--
+		Pulls the current calendar month for every meter in config/entitlements.json from the
+		Usage API (AMQL, POST /metering/usage/api/v1/meters:search) and stores one row per meter per month.
+		Drawdown totals and high watermarks are computed from those monthly rows.
+	-->
+	<sub-flow name="collect-usage">
+		<flow-ref doc:name="get-access-token" name="get-access-token" />
+		<ee:transform doc:name="Window + entitlements">
+			<ee:variables>
+				<ee:set-variable variableName="entitlements"><![CDATA[%dw 2.0
+output application/java
+---
+readUrl("classpath://config/entitlements.json", "application/json")]]></ee:set-variable>
+				<ee:set-variable variableName="window"><![CDATA[%dw 2.0
+import epochMs, nowIso from modules::util
+output application/java
+var period = (now() >> "UTC") as String {format: "yyyy-MM"}
+var monthStart = (period ++ "-01T00:00:00Z") as DateTime
+var prevStart = monthStart - |P1M|
+---
+{
+	period: period,
+	at: nowIso(),
+	// Usage data lags ~3 days, so the previous month is re-read every run until it is final.
+	// One query per month keeps each window inside the API's 60-day limit.
+	months: [
+		{ period: prevStart as String {format: "yyyy-MM"}, fromMs: epochMs(prevStart), toMs: epochMs(monthStart) - 1 },
+		{ period: period, fromMs: epochMs(monthStart), toMs: epochMs(now()) }
+	]
+}]]></ee:set-variable>
+				<ee:set-variable variableName="usageOk"><![CDATA[0]]></ee:set-variable>
+				<ee:set-variable variableName="usageErrors"><![CDATA[%dw 2.0
+output application/java
+---
+[]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+
+		<foreach doc:name="Each meter" collection="#[vars.entitlements.entitlements filter ($.meter != null)]">
+			<set-variable variableName="ent" value="#[payload]" doc:name="ent" />
+			<try doc:name="Query meter">
+				<foreach doc:name="Previous + current month" collection="#[vars.window.months]">
+					<set-variable variableName="month" value="#[payload]" />
+					<http:request method="POST" doc:name="meters:search" config-ref="Anypoint_HTTP_Request" path="/metering/usage/api/v1/meters:search">
+						<http:body><![CDATA[#[%dw 2.0
+import amqlQuery from modules::usage
+output application/json
+---
+{ query: amqlQuery(vars.ent.meter, vars.ent.measurement, vars.month.fromMs, vars.month.toMs) }]]]></http:body>
+						<http:headers><![CDATA[#[{ Authorization: "Bearer " ++ vars.accessToken }]]]></http:headers>
+					</http:request>
+					<ee:transform doc:name="Usage row">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+import sumMeasurement from modules::usage
+output application/java
+---
+{
+	meter_key: vars.ent.key,
+	period: vars.month.period,
+	usage_value: sumMeasurement(payload, vars.ent.measurement),
+	collected_at: vars.window.at
+}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<db:delete doc:name="Delete month row" config-ref="Watchmen_DB" target="deletedRows">
+						<db:sql><![CDATA[DELETE FROM usage_record WHERE meter_key = :meter_key AND period = :period]]></db:sql>
+						<db:input-parameters><![CDATA[#[{ meter_key: payload.meter_key, period: payload.period }]]]></db:input-parameters>
+					</db:delete>
+					<db:insert doc:name="Insert month row" config-ref="Watchmen_DB">
+						<db:sql><![CDATA[INSERT INTO usage_record (meter_key, period, usage_value, collected_at) VALUES (:meter_key, :period, :usage_value, :collected_at)]]></db:sql>
+						<db:input-parameters><![CDATA[#[payload]]]></db:input-parameters>
+					</db:insert>
+				</foreach>
+				<set-variable variableName="usageOk" value="#[vars.usageOk + 1]" />
+				<error-handler>
+					<on-error-continue type="ANY">
+						<logger level="WARN" category="watchmen.usage" message="#['Meter ' ++ vars.ent.key ++ ' failed: ' ++ (error.description default '')]" />
+						<set-variable variableName="usageErrors" value="#[output application/java --- vars.usageErrors ++ [vars.ent.key ++ ': ' ++ (error.description default 'error')]]" />
+					</on-error-continue>
+				</error-handler>
+			</try>
+		</foreach>
+
+		<db:insert doc:name="usage_snapshot" config-ref="Watchmen_DB">
+			<db:sql><![CDATA[INSERT INTO usage_snapshot (collected_at, period, meters_ok, meters_failed, errors) VALUES (:collected_at, :period, :ok, :failed, :errors)]]></db:sql>
+			<db:input-parameters><![CDATA[#[%dw 2.0
+import truncate from modules::util
+---
+{
+	collected_at: vars.window.at,
+	period: vars.window.period,
+	ok: vars.usageOk,
+	failed: sizeOf(vars.usageErrors),
+	errors: truncate(vars.usageErrors joinBy "\n", 4000)
+}]]]></db:input-parameters>
+		</db:insert>
+		<logger level="INFO" category="watchmen.usage" message="#['Usage collected: ' ++ vars.usageOk ++ ' ok, ' ++ sizeOf(vars.usageErrors) ++ ' failed;']" />
+
+		<flow-ref doc:name="compute-entitlement-status" name="compute-entitlement-status" />
+		<set-variable variableName="jobMessage" value="#[output application/java --- (vars.jobMessage default '') ++ ' usage: ' ++ vars.usageOk ++ ' meters ok, ' ++ sizeOf(vars.usageErrors) ++ ' failed;']" />
+	</sub-flow>
+
+	<!-- Rebuilds entitlement_status from usage_record and the contract limits -->
+	<sub-flow name="compute-entitlement-status">
+		<set-variable variableName="entitlements" value="#[vars.entitlements default readUrl('classpath://config/entitlements.json', 'application/json')]" />
+		<db:select doc:name="Usage since contract start" config-ref="Watchmen_DB" target="usageRows">
+			<db:sql><![CDATA[SELECT meter_key, period, usage_value FROM usage_record WHERE period >= :start]]></db:sql>
+			<db:input-parameters><![CDATA[#[{ start: vars.entitlements.contract.start }]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Compute statuses">
+			<ee:variables>
+				<ee:set-variable variableName="statuses"><![CDATA[%dw 2.0
+import lowerKeys, nowIso from modules::util
+import computeStatuses from modules::usage
+output application/java
+---
+computeStatuses(
+	vars.entitlements,
+	lowerKeys(vars.usageRows),
+	(now() >> "UTC") as String {format: "yyyy-MM"},
+	p('alerts.warningPct') as Number,
+	p('alerts.criticalPct') as Number,
+	nowIso())]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<db:delete doc:name="Clear statuses" config-ref="Watchmen_DB">
+			<db:sql><![CDATA[DELETE FROM entitlement_status]]></db:sql>
+		</db:delete>
+		<choice>
+			<when expression="#[not isEmpty(vars.statuses)]">
+				<db:bulk-insert doc:name="Insert statuses" config-ref="Watchmen_DB">
+					<db:bulk-input-parameters><![CDATA[#[vars.statuses]]]></db:bulk-input-parameters>
+					<db:sql><![CDATA[INSERT INTO entitlement_status (meter_key, name, usage_model, usage_value, limit_value, unit, pct_used, status, sort_order, computed_at) VALUES (:meter_key, :name, :usage_model, :usage_value, :limit_value, :unit, :pct_used, :status, :sort_order, :computed_at)]]></db:sql>
+				</db:bulk-insert>
+			</when>
+		</choice>
+		<remove-variable variableName="usageRows" />
+	</sub-flow>
+
+	<!-- Lists every meter the Usage API exposes, to fill in config/entitlements.json -->
+	<sub-flow name="describe-meters">
+		<flow-ref doc:name="get-access-token" name="get-access-token" />
+		<http:request method="GET" doc:name="meters:describe" config-ref="Anypoint_HTTP_Request" path="/metering/usage/api/v1/meters:describe">
+			<http:headers><![CDATA[#[{ Authorization: "Bearer " ++ vars.accessToken }]]]></http:headers>
+		</http:request>
+	</sub-flow>
+
+</mule>

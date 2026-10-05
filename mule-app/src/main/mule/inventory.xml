@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!--
+		Snapshot of business groups, environments, CloudHub 2.0 deployments and API Manager instances.
+		A failure in one org/environment is logged and skipped so the rest of the snapshot still lands.
+	-->
+	<sub-flow name="collect-inventory">
+		<flow-ref doc:name="get-access-token" name="get-access-token" />
+		<ee:transform doc:name="Timestamp">
+			<ee:variables>
+				<ee:set-variable variableName="inventoryAt"><![CDATA[%dw 2.0
+import nowIso from modules::util
+output application/java
+---
+nowIso()]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+
+		<http:request method="GET" doc:name="Org hierarchy" config-ref="Anypoint_HTTP_Request" path="/accounts/api/organizations/{orgId}/hierarchy">
+			<http:headers><![CDATA[#[{ Authorization: "Bearer " ++ vars.accessToken }]]]></http:headers>
+			<http:uri-params><![CDATA[#[{ orgId: "${anypoint.orgId}" }]]]></http:uri-params>
+		</http:request>
+		<ee:transform doc:name="Flatten business groups">
+			<ee:variables>
+				<ee:set-variable variableName="invOrgs"><![CDATA[%dw 2.0
+output application/java
+fun flat(o, parentId) =
+	[{ org_id: o.id, name: o.name, parent_id: parentId, collected_at: vars.inventoryAt }]
+	++ flatten((o.subOrganizations default []) map ((child) -> flat(child, o.id)))
+---
+flat(payload, null)]]></ee:set-variable>
+				<ee:set-variable variableName="invEnvs"><![CDATA[[]]]></ee:set-variable>
+				<ee:set-variable variableName="invApps"><![CDATA[[]]]></ee:set-variable>
+				<ee:set-variable variableName="invApis"><![CDATA[[]]]></ee:set-variable>
+				<ee:set-variable variableName="invErrors"><![CDATA[0]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+
+		<foreach doc:name="Each business group" collection="#[vars.invOrgs]">
+			<set-variable variableName="org" value="#[payload]" />
+			<try>
+				<http:request method="GET" doc:name="Environments" config-ref="Anypoint_HTTP_Request" path="/accounts/api/organizations/{orgId}/environments">
+					<http:headers><![CDATA[#[{ Authorization: "Bearer " ++ vars.accessToken }]]]></http:headers>
+					<http:uri-params><![CDATA[#[{ orgId: vars.org.org_id }]]]></http:uri-params>
+				</http:request>
+				<set-variable variableName="invEnvs" value="#[output application/java --- vars.invEnvs ++ ((payload.data default []) map ((e) -> {
+					env_id: e.id,
+					org_id: vars.org.org_id,
+					name: e.name,
+					env_type: e.'type',
+					is_production: if (e.isProduction default false) 1 else 0,
+					collected_at: vars.inventoryAt
+				}))]" />
+				<error-handler>
+					<on-error-continue type="ANY">
+						<logger level="WARN" category="watchmen.inventory" message="#['Environments of ' ++ vars.org.name ++ ' failed: ' ++ (error.description default '')]" />
+						<set-variable variableName="invErrors" value="#[vars.invErrors + 1]" />
+					</on-error-continue>
+				</error-handler>
+			</try>
+		</foreach>
+
+		<foreach doc:name="Each environment" collection="#[vars.invEnvs]">
+			<set-variable variableName="env" value="#[payload]" />
+			<try doc:name="Applications">
+				<http:request method="GET" doc:name="CloudHub 2.0 deployments" config-ref="Anypoint_HTTP_Request" path="/amc/application-manager/api/v2/organizations/{orgId}/environments/{envId}/deployments">
+					<http:headers><![CDATA[#[{ Authorization: "Bearer " ++ vars.accessToken }]]]></http:headers>
+					<http:uri-params><![CDATA[#[{ orgId: vars.env.org_id, envId: vars.env.env_id }]]]></http:uri-params>
+				</http:request>
+				<set-variable variableName="invApps" value="#[output application/java --- vars.invApps ++ ((payload.items default payload.data default []) map ((d) -> {
+					app_id: d.id,
+					name: d.name,
+					org_id: vars.env.org_id,
+					env_id: vars.env.env_id,
+					status: d.application.status default d.status,
+					runtime_version: d.currentRuntimeVersion default d.target.deploymentSettings.runtimeVersion,
+					collected_at: vars.inventoryAt
+				}))]" />
+				<error-handler>
+					<on-error-continue type="ANY">
+						<logger level="WARN" category="watchmen.inventory" message="#['Apps of ' ++ vars.env.name ++ ' failed: ' ++ (error.description default '')]" />
+						<set-variable variableName="invErrors" value="#[vars.invErrors + 1]" />
+					</on-error-continue>
+				</error-handler>
+			</try>
+			<try doc:name="APIs">
+				<http:request method="GET" doc:name="API Manager instances" config-ref="Anypoint_HTTP_Request" path="/apimanager/api/v1/organizations/{orgId}/environments/{envId}/apis">
+					<http:headers><![CDATA[#[{ Authorization: "Bearer " ++ vars.accessToken }]]]></http:headers>
+					<http:uri-params><![CDATA[#[{ orgId: vars.env.org_id, envId: vars.env.env_id }]]]></http:uri-params>
+				</http:request>
+				<set-variable variableName="invApis" value="#[output application/java --- vars.invApis ++ flatten((payload.assets default []) map ((asset) -> (asset.apis default []) map ((api) -> {
+					api_id: api.id as String,
+					asset_id: asset.assetId default api.assetId,
+					version: api.assetVersion default api.productVersion,
+					label: api.instanceLabel,
+					org_id: vars.env.org_id,
+					env_id: vars.env.env_id,
+					status: api.status,
+					collected_at: vars.inventoryAt
+				})))]" />
+				<error-handler>
+					<on-error-continue type="ANY">
+						<logger level="WARN" category="watchmen.inventory" message="#['APIs of ' ++ vars.env.name ++ ' failed: ' ++ (error.description default '')]" />
+						<set-variable variableName="invErrors" value="#[vars.invErrors + 1]" />
+					</on-error-continue>
+				</error-handler>
+			</try>
+		</foreach>
+
+		<!-- Replace the snapshot -->
+		<db:delete doc:name="Clear BGs" config-ref="Watchmen_DB"><db:sql><![CDATA[DELETE FROM inventory_business_group]]></db:sql></db:delete>
+		<db:delete doc:name="Clear envs" config-ref="Watchmen_DB"><db:sql><![CDATA[DELETE FROM inventory_environment]]></db:sql></db:delete>
+		<db:delete doc:name="Clear apps" config-ref="Watchmen_DB"><db:sql><![CDATA[DELETE FROM inventory_application]]></db:sql></db:delete>
+		<db:delete doc:name="Clear APIs" config-ref="Watchmen_DB"><db:sql><![CDATA[DELETE FROM inventory_api]]></db:sql></db:delete>
+		<choice>
+			<when expression="#[not isEmpty(vars.invOrgs)]">
+				<db:bulk-insert doc:name="Insert BGs" config-ref="Watchmen_DB">
+					<db:bulk-input-parameters><![CDATA[#[vars.invOrgs distinctBy $.org_id]]]></db:bulk-input-parameters>
+					<db:sql><![CDATA[INSERT INTO inventory_business_group (org_id, name, parent_id, collected_at) VALUES (:org_id, :name, :parent_id, :collected_at)]]></db:sql>
+				</db:bulk-insert>
+			</when>
+		</choice>
+		<choice>
+			<when expression="#[not isEmpty(vars.invEnvs)]">
+				<db:bulk-insert doc:name="Insert envs" config-ref="Watchmen_DB">
+					<db:bulk-input-parameters><![CDATA[#[vars.invEnvs distinctBy $.env_id]]]></db:bulk-input-parameters>
+					<db:sql><![CDATA[INSERT INTO inventory_environment (env_id, org_id, name, env_type, is_production, collected_at) VALUES (:env_id, :org_id, :name, :env_type, :is_production, :collected_at)]]></db:sql>
+				</db:bulk-insert>
+			</when>
+		</choice>
+		<choice>
+			<when expression="#[not isEmpty(vars.invApps)]">
+				<db:bulk-insert doc:name="Insert apps" config-ref="Watchmen_DB">
+					<db:bulk-input-parameters><![CDATA[#[vars.invApps distinctBy $.app_id]]]></db:bulk-input-parameters>
+					<db:sql><![CDATA[INSERT INTO inventory_application (app_id, name, org_id, env_id, status, runtime_version, collected_at) VALUES (:app_id, :name, :org_id, :env_id, :status, :runtime_version, :collected_at)]]></db:sql>
+				</db:bulk-insert>
+			</when>
+		</choice>
+		<choice>
+			<when expression="#[not isEmpty(vars.invApis)]">
+				<db:bulk-insert doc:name="Insert APIs" config-ref="Watchmen_DB">
+					<db:bulk-input-parameters><![CDATA[#[vars.invApis distinctBy $.api_id]]]></db:bulk-input-parameters>
+					<db:sql><![CDATA[INSERT INTO inventory_api (api_id, asset_id, version, label, org_id, env_id, status, collected_at) VALUES (:api_id, :asset_id, :version, :label, :org_id, :env_id, :status, :collected_at)]]></db:sql>
+				</db:bulk-insert>
+			</when>
+		</choice>
+
+		<set-variable variableName="jobMessage" value="#[output application/java --- (vars.jobMessage default '') ++ ' inventory: ' ++ sizeOf(vars.invOrgs) ++ ' BGs, ' ++ sizeOf(vars.invEnvs) ++ ' envs, ' ++ sizeOf(vars.invApps) ++ ' apps, ' ++ sizeOf(vars.invApis) ++ ' APIs, ' ++ vars.invErrors ++ ' errors;']" />
+	</sub-flow>
+
+</mule>

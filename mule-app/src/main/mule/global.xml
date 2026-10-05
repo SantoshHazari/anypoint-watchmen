@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd">
+
+	<configuration-properties doc:name="App properties" file="config/app.yaml" />
+
+	<!-- Inbound: dashboard UI + REST API -->
+	<http:listener-config name="Watchmen_HTTP_Listener" doc:name="HTTP Listener config">
+		<http:listener-connection host="0.0.0.0" port="${http.port}" />
+	</http:listener-config>
+
+	<!-- Outbound: Anypoint Platform APIs -->
+	<http:request-config name="Anypoint_HTTP_Request" doc:name="Anypoint Platform" responseTimeout="${anypoint.timeoutMs}">
+		<http:request-connection protocol="HTTPS" host="${anypoint.host}" port="443" />
+	</http:request-config>
+
+	<db:config name="Watchmen_DB" doc:name="Watchmen DB">
+		<db:generic-connection url="${db.url}" driverClassName="${db.driver}" user="${db.user}" password="${db.password}" />
+	</db:config>
+
+	<!-- Holds the OAuth token; expiry is tracked inside the stored value (renewed at 90% of its lifetime) -->
+	<os:object-store name="Token_Store" doc:name="Token store" persistent="false" />
+
+	<email:smtp-config name="Watchmen_SMTP" doc:name="SMTP (Gmail)">
+		<email:smtps-connection host="${email.smtp.host}" port="${email.smtp.port}" user="${email.smtp.user}" password="${email.smtp.password}">
+			<!-- Trusts the JVM's standard CA certificates; server certificates are verified ("changeit" is the JDK default) -->
+			<!-- No enabledProtocols: use whatever the runtime's tls-default.conf allows (TLS 1.2 on Studio runtimes) -->
+			<tls:context>
+				<tls:trust-store path="${java.home}/lib/security/cacerts" password="changeit" type="pkcs12" />
+			</tls:context>
+		</email:smtps-connection>
+	</email:smtp-config>
+
+	<!-- Shared error handler for the REST API flows -->
+	<error-handler name="api-error-handler">
+		<on-error-propagate type="APP:BAD_REQUEST">
+			<set-variable variableName="httpStatus" value="400" />
+			<set-payload value='#[output application/json --- {error: "bad_request", message: error.description}]' />
+		</on-error-propagate>
+		<on-error-propagate type="APP:NOT_FOUND">
+			<set-variable variableName="httpStatus" value="404" />
+			<set-payload value='#[output application/json --- {error: "not_found", message: error.description}]' />
+		</on-error-propagate>
+		<on-error-propagate type="ANY">
+			<logger level="ERROR" category="watchmen.api" message="#['API error: ' ++ (error.description default '')]" />
+			<set-variable variableName="httpStatus" value="500" />
+			<set-payload value='#[output application/json --- {error: "internal_error", message: error.description}]' />
+		</on-error-propagate>
+	</error-handler>
+
+</mule>

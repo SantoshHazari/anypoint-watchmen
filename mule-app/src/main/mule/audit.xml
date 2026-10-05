@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!--
+		Incremental audit polling:
+		  * window starts at window_end_utc of the last successful run, or now - max_lookback_hours
+		    if there is no prior run or the gap is longer than that;
+		  * excluded actions (settings audit.exclude_actions) are removed at API level by sending a
+		    whitelist of the remaining actions, and again client-side as a safety net;
+		  * each event is risk-classified with config/audit_rules.json; critical/warning events raise alerts.
+	-->
+	<sub-flow name="collect-audit">
+		<flow-ref doc:name="load-settings" name="load-settings" />
+		<db:select doc:name="Last successful poll" config-ref="Watchmen_DB" target="lastPoll">
+			<db:sql><![CDATA[SELECT window_end_utc FROM audit_poll_run WHERE status = 'success' ORDER BY id DESC LIMIT 1]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Polling window">
+			<ee:variables>
+				<ee:set-variable variableName="auditWindow"><![CDATA[%dw 2.0
+import isoUtc, lowerKeys, nowIso from modules::util
+output application/java
+var lookbackHours = (vars.settings['audit.max_lookback_hours'] default 24) as Number
+var floorDt = now() - ("PT$(lookbackHours)H" as Period)
+var last = lowerKeys(vars.lastPoll)[0].window_end_utc
+var startDt = if ((last != null) and ((last as DateTime) >= floorDt)) (last as DateTime) else floorDt
+---
+{
+	start: isoUtc(startDt),
+	end: nowIso(),
+	incremental: (last != null) and ((last as DateTime) >= floorDt)
+}]]></ee:set-variable>
+				<ee:set-variable variableName="auditRules"><![CDATA[%dw 2.0
+output application/java
+---
+readUrl("classpath://config/audit_rules.json", "application/json")]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" category="watchmen.audit" message="#['Audit window ' ++ vars.auditWindow.start ++ ' .. ' ++ vars.auditWindow.end ++ (if (vars.auditWindow.incremental) ' (incremental)' else ' (lookback)')]" />
+
+		<try doc:name="Poll audit log">
+			<flow-ref doc:name="get-access-token" name="get-access-token" />
+
+			<!-- Build the action whitelist; if the actions endpoint fails, fall back to client-side filtering only -->
+			<try doc:name="Action whitelist">
+				<http:request method="GET" doc:name="GET actions" config-ref="Anypoint_HTTP_Request" path="/audit/v2/organizations/{orgId}/actions">
+					<http:headers><![CDATA[#[{ Authorization: "Bearer " ++ vars.accessToken }]]]></http:headers>
+					<http:uri-params><![CDATA[#[{ orgId: "${anypoint.orgId}" }]]]></http:uri-params>
+				</http:request>
+				<ee:transform doc:name="Whitelist">
+					<ee:variables>
+						<ee:set-variable variableName="actionWhitelist"><![CDATA[%dw 2.0
+import some from dw::core::Arrays
+output application/java
+var excluded = vars.settings['audit.exclude_actions'] default []
+var all = (payload.data default payload) default []
+var names = (all map ((a) -> if (a is Object) (a.name default a.action default a.id) else a)) filter ((n) -> n != null)
+var allowed = names filter ((n) -> not (excluded some ((x) -> lower(x) == lower(n as String))))
+---
+if (isEmpty(allowed)) null else allowed]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<error-handler>
+					<on-error-continue type="ANY">
+						<logger level="WARN" category="watchmen.audit" message="#['Could not load audit actions, filtering client-side: ' ++ (error.description default '')]" />
+						<set-variable variableName="actionWhitelist" value="#[null]" />
+					</on-error-continue>
+				</error-handler>
+			</try>
+
+			<set-variable variableName="pageSize" value="#[100]" />
+			<flow-ref doc:name="query-audit-page (offset 0)" name="query-audit-page" />
+			<set-variable variableName="rawEvents" value="#[output application/java --- payload.data default []]" />
+			<ee:transform doc:name="Remaining offsets">
+				<ee:variables>
+					<ee:set-variable variableName="offsets"><![CDATA[%dw 2.0
+output application/java
+var total = (payload.total default 0) as Number
+var pages = min([ceil(total / vars.pageSize), 50])
+---
+if (pages <= 1) [] else (1 to pages - 1) map ((i) -> i * vars.pageSize)]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<foreach doc:name="Each extra page" collection="#[vars.offsets]">
+				<set-variable variableName="offset" value="#[payload]" />
+				<flow-ref doc:name="query-audit-page" name="query-audit-page" />
+				<set-variable variableName="rawEvents" value="#[output application/java --- vars.rawEvents ++ (payload.data default [])]" />
+			</foreach>
+
+			<ee:transform doc:name="Normalize + classify">
+				<ee:variables>
+					<ee:set-variable variableName="auditEvents"><![CDATA[%dw 2.0
+import normalizeEvent, isExcluded from modules::risk
+output application/java
+var excluded = vars.settings['audit.exclude_actions'] default []
+---
+((vars.rawEvents map ((r) -> normalizeEvent(r, vars.auditRules)))
+	filter ((e) -> not isExcluded(e, excluded)))
+	distinctBy ((e) -> e.event_id)]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<ee:transform doc:name="Alerts for risky events">
+				<ee:variables>
+					<ee:set-variable variableName="newAlerts"><![CDATA[%dw 2.0
+import auditAlerts from modules::alerts
+import nowIso from modules::util
+output application/java
+---
+auditAlerts(vars.auditEvents, nowIso())]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+
+			<choice doc:name="Any events?">
+				<when expression="#[not isEmpty(vars.auditEvents)]">
+					<!-- Window edges can overlap by a second: replace rather than duplicate -->
+					<db:bulk-delete doc:name="Remove duplicates" config-ref="Watchmen_DB">
+						<db:bulk-input-parameters><![CDATA[#[vars.auditEvents map { event_id: $.event_id }]]]></db:bulk-input-parameters>
+						<db:sql><![CDATA[DELETE FROM audit_event WHERE event_id = :event_id]]></db:sql>
+					</db:bulk-delete>
+					<db:bulk-insert doc:name="Insert audit events" config-ref="Watchmen_DB">
+						<db:bulk-input-parameters><![CDATA[#[vars.auditEvents]]]></db:bulk-input-parameters>
+						<db:sql><![CDATA[INSERT INTO audit_event (event_id, event_ts, action, subaction, object_type, object_name, user_name, org_id, env_id, risk, raw_json) VALUES (:event_id, :event_ts, :action, :subaction, :object_type, :object_name, :user_name, :org_id, :env_id, :risk, :raw_json)]]></db:sql>
+					</db:bulk-insert>
+				</when>
+			</choice>
+			<flow-ref doc:name="insert-alerts" name="insert-alerts" />
+
+			<db:insert doc:name="Poll run: success" config-ref="Watchmen_DB">
+				<db:sql><![CDATA[INSERT INTO audit_poll_run (window_start_utc, window_end_utc, status, events_fetched, events_stored, message, created_at) VALUES (:ws, :we, 'success', :fetched, :stored, :msg, :at)]]></db:sql>
+				<db:input-parameters><![CDATA[#[%dw 2.0
+import nowIso from modules::util
+---
+{
+	ws: vars.auditWindow.start,
+	we: vars.auditWindow.end,
+	fetched: sizeOf(vars.rawEvents),
+	stored: sizeOf(vars.auditEvents),
+	msg: "$(sizeOf(vars.newAlerts)) alerts raised; api filter " ++ (if (vars.actionWhitelist != null) "on" else "off"),
+	at: nowIso()
+}]]]></db:input-parameters>
+			</db:insert>
+			<set-variable variableName="jobMessage" value="#[output application/java --- (vars.jobMessage default '') ++ ' audit: ' ++ sizeOf(vars.auditEvents) ++ ' events, ' ++ sizeOf(vars.newAlerts) ++ ' alerts;']" />
+
+			<error-handler>
+				<on-error-propagate type="ANY">
+					<db:insert doc:name="Poll run: failed" config-ref="Watchmen_DB">
+						<db:sql><![CDATA[INSERT INTO audit_poll_run (window_start_utc, window_end_utc, status, events_fetched, events_stored, message, created_at) VALUES (:ws, :we, 'failed', 0, 0, :msg, :at)]]></db:sql>
+						<db:input-parameters><![CDATA[#[%dw 2.0
+import nowIso, truncate from modules::util
+---
+{ ws: vars.auditWindow.start, we: vars.auditWindow.end, msg: truncate(error.description default 'error', 4000), at: nowIso() }]]]></db:input-parameters>
+					</db:insert>
+				</on-error-propagate>
+			</error-handler>
+		</try>
+
+		<flow-ref doc:name="auto-resolve-audit-alerts" name="auto-resolve-audit-alerts" />
+	</sub-flow>
+
+	<!-- One page of POST /audit/v2/organizations/{orgId}/query; uses vars.offset (default 0) -->
+	<sub-flow name="query-audit-page">
+		<http:request method="POST" doc:name="Audit query" config-ref="Anypoint_HTTP_Request" path="/audit/v2/organizations/{orgId}/query">
+			<http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+	startDate: vars.auditWindow.start,
+	endDate: vars.auditWindow.end,
+	(actions: vars.actionWhitelist) if (vars.actionWhitelist != null),
+	ascending: true,
+	offset: vars.offset default 0,
+	limit: vars.pageSize
+}]]]></http:body>
+			<http:headers><![CDATA[#[{ Authorization: "Bearer " ++ vars.accessToken }]]]></http:headers>
+			<http:uri-params><![CDATA[#[{ orgId: "${anypoint.orgId}" }]]]></http:uri-params>
+		</http:request>
+	</sub-flow>
+
+</mule>

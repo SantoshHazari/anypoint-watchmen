@@ -1,0 +1,9 @@
+target/
+.mule/
+.settings/
+.classpath
+.project
+*.log
+# Local run properties with credentials — never commit
+local.properties
+.env

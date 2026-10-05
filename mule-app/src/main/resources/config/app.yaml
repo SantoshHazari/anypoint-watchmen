@@ -1,0 +1,44 @@
+# Anypoint Watchmen — application properties.
+#
+# Credentials are NOT stored here. Pass them as runtime properties:
+#   Studio:  Run Configurations > Arguments >
+#            -M-Danypoint.client.id=... -M-Danypoint.client.secret=... -M-Danypoint.orgId=...
+#   CloudHub: Runtime Manager > Properties (mark as secure)
+# Required: anypoint.client.id, anypoint.client.secret, anypoint.orgId
+
+http:
+  port: "5050"
+
+app:
+  baseUrl: "http://localhost:5050"
+
+anypoint:
+  host: "anypoint.mulesoft.com"
+  timeoutMs: "60000"
+
+db:
+  # Local default: H2 file DB in your home folder. For CloudHub use PostgreSQL:
+  #   url: jdbc:postgresql://host:5432/watchmen   driver: org.postgresql.Driver
+  url: "jdbc:h2:file:~/watchmen-data/watchmen;AUTO_SERVER=TRUE"
+  driver: "org.h2.Driver"
+  user: "sa"
+  password: ""
+
+scheduler:
+  collectAll:
+    frequencyMinutes: "60"
+    # same unit as the frequency (minutes); gives the DB init time to finish
+    startDelayMinutes: "1"
+
+alerts:
+  warningPct: "80"
+  criticalPct: "95"
+
+email:
+  enabled: "false"
+  from: "watchmen@example.com"
+  smtp:
+    host: "smtp.gmail.com"
+    port: "465"
+    user: ""
+    password: ""

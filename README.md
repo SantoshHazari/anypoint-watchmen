@@ -4,6 +4,8 @@ A self-hosted dashboard that watches a MuleSoft Anypoint Platform organization s
 
 Built with Python + Flask + SQLite. One external dependency. Runs anywhere Python runs.
 
+A Mule 4 implementation of the same accelerator (deployable to CloudHub / Runtime Fabric) lives in [`mule-app/`](mule-app/) — see its [README](mule-app/README.md).
+
 ## Why this exists
 
 Our Anypoint organization runs on a fixed entitlement package: as long as consumption stays inside the included limits (Mule Messages, Data Throughput, Flex Gateway calls, IDP pages, etc.), it costs nothing extra — but anything beyond those limits is billed, and usage-based overage on an integration platform gets expensive quickly.

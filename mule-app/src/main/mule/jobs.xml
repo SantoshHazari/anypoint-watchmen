@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!-- Creates tables (idempotent) and seeds default settings at startup, then once a day -->
+	<flow name="init-db-flow">
+		<scheduler doc:name="On startup">
+			<scheduling-strategy>
+				<fixed-frequency frequency="1" timeUnit="DAYS" startDelay="0" />
+			</scheduling-strategy>
+		</scheduler>
+		<db:execute-script doc:name="schema.sql" config-ref="Watchmen_DB" file="sql/schema.sql" />
+		<flow-ref doc:name="seed-settings" name="seed-settings" />
+		<logger level="INFO" category="watchmen.jobs" message="Database schema ready" />
+	</flow>
+
+	<flow name="collect-all-scheduler-flow">
+		<scheduler doc:name="Every N minutes">
+			<scheduling-strategy>
+				<fixed-frequency frequency="${scheduler.collectAll.frequencyMinutes}" timeUnit="MINUTES" startDelay="${scheduler.collectAll.startDelayMinutes}" />
+			</scheduling-strategy>
+		</scheduler>
+		<set-variable variableName="jobName" value="collect_all" />
+		<set-variable variableName="jobTrigger" value="scheduler" />
+		<flow-ref doc:name="run-job" name="run-job" />
+	</flow>
+
+	<!--
+		Runs one job and records it in job_run. Each step is isolated: a failing step is recorded
+		and the remaining steps still run (status "partial").
+		Jobs: collect_all | collect_audit | collect_usage | collect_inventory
+	-->
+	<flow name="run-job" maxConcurrency="1">
+		<ee:transform doc:name="Start">
+			<ee:variables>
+				<ee:set-variable variableName="jobStartedAt"><![CDATA[%dw 2.0
+import nowIso from modules::util
+output application/java
+---
+nowIso()]]></ee:set-variable>
+				<ee:set-variable variableName="jobMessage"><![CDATA[""]]></ee:set-variable>
+				<ee:set-variable variableName="jobErrors"><![CDATA[[]]]></ee:set-variable>
+				<ee:set-variable variableName="jobSteps"><![CDATA[%dw 2.0
+output application/java
+---
+vars.jobName match {
+	case "collect_all"       -> ["inventory", "usage", "audit"]
+	case "collect_audit"     -> ["audit"]
+	case "collect_usage"     -> ["usage"]
+	case "collect_inventory" -> ["inventory"]
+	else -> []
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" category="watchmen.jobs" message="#['Job ' ++ vars.jobName ++ ' started (' ++ vars.jobTrigger ++ ')']" />
+
+		<foreach doc:name="Each step" collection="#[vars.jobSteps]">
+			<set-variable variableName="step" value="#[payload]" />
+			<try doc:name="Step">
+				<choice>
+					<when expression="#[vars.step == 'inventory']">
+						<flow-ref doc:name="collect-inventory" name="collect-inventory" />
+					</when>
+					<when expression="#[vars.step == 'usage']">
+						<flow-ref doc:name="collect-usage" name="collect-usage" />
+						<flow-ref doc:name="evaluate-usage-alerts" name="evaluate-usage-alerts" />
+					</when>
+					<when expression="#[vars.step == 'audit']">
+						<flow-ref doc:name="collect-audit" name="collect-audit" />
+					</when>
+				</choice>
+				<error-handler>
+					<on-error-continue type="ANY">
+						<logger level="ERROR" category="watchmen.jobs" message="#['Step ' ++ vars.step ++ ' failed: ' ++ (error.description default '')]" />
+						<set-variable variableName="jobErrors" value="#[output application/java --- vars.jobErrors ++ [vars.step ++ ': ' ++ (error.description default 'error')]]" />
+					</on-error-continue>
+				</error-handler>
+			</try>
+		</foreach>
+
+		<!-- Both collect_all and collect_audit notify, like the original _notify() helper -->
+		<choice doc:name="Notify?">
+			<when expression="#[vars.jobName == 'collect_all' or vars.jobName == 'collect_audit' or vars.jobName == 'collect_usage']">
+				<try>
+					<flow-ref doc:name="notify-alerts" name="notify-alerts" />
+					<error-handler>
+						<on-error-continue type="ANY">
+							<set-variable variableName="jobErrors" value="#[output application/java --- vars.jobErrors ++ ['notify: ' ++ (error.description default 'error')]]" />
+						</on-error-continue>
+					</error-handler>
+				</try>
+			</when>
+		</choice>
+
+		<db:insert doc:name="job_run" config-ref="Watchmen_DB">
+			<db:sql><![CDATA[INSERT INTO job_run (job_name, trigger_src, status, started_at, finished_at, message) VALUES (:job, :trigger_src, :status, :started, :finished, :msg)]]></db:sql>
+			<db:input-parameters><![CDATA[#[%dw 2.0
+import nowIso, truncate from modules::util
+var status =
+	if (isEmpty(vars.jobErrors)) "success"
+	else if (sizeOf(vars.jobErrors) >= sizeOf(vars.jobSteps)) "failed"
+	else "partial"
+---
+{
+	job: vars.jobName,
+	trigger_src: vars.jobTrigger default "manual",
+	status: status,
+	started: vars.jobStartedAt,
+	finished: nowIso(),
+	msg: truncate(trim(vars.jobMessage ++ (if (isEmpty(vars.jobErrors)) "" else " ERRORS: " ++ (vars.jobErrors joinBy " | "))), 4000)
+}]]]></db:input-parameters>
+		</db:insert>
+		<logger level="INFO" category="watchmen.jobs" message="#['Job ' ++ vars.jobName ++ ' finished: ' ++ vars.jobMessage ++ (if (isEmpty(vars.jobErrors)) '' else ' errors=' ++ (vars.jobErrors joinBy ' | '))]" />
+	</flow>
+
+</mule>

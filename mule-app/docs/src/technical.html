@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Anypoint Watchmen — Technical Setup Guide</title>
+<style>
+  @page { size: A4; margin: 18mm 18mm 20mm 18mm;
+    @bottom-left { content: "Anypoint Watchmen · Technical Setup Guide"; font: 8pt "Segoe UI", Arial, sans-serif; color: #8a94a6; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt "Segoe UI", Arial, sans-serif; color: #8a94a6; }
+  }
+  @page :first { @bottom-left { content: none; } @bottom-right { content: none; } }
+  :root { --ink:#16202e; --muted:#5b6678; --line:#dfe3ea; --accent:#23497a; --accent-soft:#e9eff7; --warn:#a15c07; --warn-soft:#fdf3e3; --ok:#1f6f43; --ok-soft:#e8f4ed; --code:#f4f6f9; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin:0; font: 10.5pt/1.55 "Segoe UI", Arial, sans-serif; color: var(--ink); }
+  h1, h2, h3 { line-height: 1.25; margin: 0; }
+  h2 { font-size: 17pt; color: var(--accent); margin: 0 0 4mm; padding-bottom: 2mm; border-bottom: 2px solid var(--accent); }
+  h3 { font-size: 11.5pt; margin: 5mm 0 1.5mm; }
+  p { margin: 0 0 3mm; }
+  ul, ol { margin: 0 0 3mm; padding-left: 5mm; }
+  li { margin-bottom: 1.2mm; }
+  .page { break-after: auto; }
+  .page + .page { margin-top: 9mm; }
+  .cover { break-after: page; }
+  .cover + .page { margin-top: 0; }
+  h2, h3 { break-after: avoid; }
+  table, pre.code, .callout { break-inside: auto; }
+  thead, tr:first-child { break-after: avoid; }
+  .lead { font-size: 12pt; color: #2b3647; }
+  .muted { color: var(--muted); }
+  .small { font-size: 9pt; }
+  code, .code { font-family: Consolas, "Courier New", monospace; font-size: 9pt; }
+  code { background: var(--code); padding: .2mm 1.2mm; border-radius: 1mm; }
+  pre.code { background: #0f1b2d; color: #e6edf6; padding: 3mm 4mm; border-radius: 2mm; white-space: pre-wrap; word-break: break-all; margin: 2mm 0 3mm; }
+  .path { font-weight: 600; color: var(--accent); }
+
+  .cover { height: 255mm; display: flex; flex-direction: column; justify-content: space-between; }
+  .cover .band { background: var(--accent); color: #fff; padding: 22mm 14mm 16mm; border-radius: 3mm; }
+  .cover .kicker { text-transform: uppercase; letter-spacing: .14em; font-size: 9pt; opacity: .8; }
+  .cover h1 { font-size: 32pt; margin: 4mm 0 3mm; }
+  .cover .tagline { font-size: 13.5pt; opacity: .95; max-width: 150mm; }
+  .cover .toc { columns: 2; column-gap: 10mm; font-size: 10pt; }
+  .cover .toc div { break-inside: avoid; padding: 1.5mm 0; border-bottom: 1px dotted var(--line); }
+  .cover .toc b { color: var(--accent); display: inline-block; width: 8mm; }
+  .cover .meta { font-size: 9pt; color: var(--muted); border-top: 1px solid var(--line); padding-top: 3mm; display: flex; justify-content: space-between; }
+
+  .callout { background: var(--accent-soft); border-left: 4px solid var(--accent); padding: 3.5mm 5mm; border-radius: 0 2mm 2mm 0; margin: 3mm 0 4mm; break-inside: avoid; }
+  .warn { background: var(--warn-soft); border-left-color: var(--warn); }
+  .ok { background: var(--ok-soft); border-left-color: var(--ok); }
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; font-size: 9.5pt; }
+  th { text-align: left; background: #f3f5f8; color: #3a4558; font-weight: 600; padding: 2mm 2.5mm; border-bottom: 1.5px solid #c9d0db; }
+  td { padding: 2mm 2.5mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr { break-inside: avoid; }
+  .check { display: inline-block; width: 4mm; height: 4mm; border: 1.5px solid var(--accent); border-radius: .8mm; vertical-align: -0.6mm; }
+  .tag { display: inline-block; padding: .3mm 2mm; border-radius: 3mm; font-size: 8.5pt; font-weight: 600; background: var(--accent-soft); color: var(--accent); }
+  .tag.opt { background: #f1f2f4; color: var(--muted); }
+
+  .step { display: grid; grid-template-columns: 11mm 1fr; gap: 3mm; margin-bottom: 4mm; break-inside: avoid; }
+  .step .n { width: 9mm; height: 9mm; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .step h3 { margin-top: 1mm; }
+  .click { font-weight: 600; }
+  .click::before { content: "▸ "; color: var(--accent); }
+
+  .flow { display: flex; align-items: stretch; margin: 4mm 0; }
+  .flow .node { flex: 1; border: 1.5px solid var(--accent); border-radius: 2.5mm; padding: 3mm; font-size: 9pt; }
+  .flow .node.mid { background: var(--accent); color: #fff; }
+  .flow .node b { display: block; font-size: 10pt; margin-bottom: 1mm; }
+  .flow .arrow { width: 9mm; display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 15pt; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<section class="page cover">
+  <div class="band">
+    <div class="kicker">Technical setup guide</div>
+    <h1>Anypoint Watchmen</h1>
+    <div class="tagline">What you need, how to set it up and how to run it, explained step by step for someone who has not done this before.</div>
+  </div>
+  <div class="toc">
+    <div><b>1</b>What you are setting up</div>
+    <div><b>2</b>Shopping list: what you need</div>
+    <div><b>3</b>Step by step (6 steps):<br><span class="muted" style="padding-left:8mm;display:inline-block">install · Connected App · open project · credentials · start · first-run checks</span></div>
+    <div><b>4</b>Optional: email alerts</div>
+    <div><b>5</b>Everyday use</div>
+    <div><b>6</b>Troubleshooting</div>
+    <div><b>7</b>Running on a server or in the cloud</div>
+    <div><b>8</b>Where things live (for IT)</div>
+    <div><b>9</b>Glossary</div>
+  </div>
+  <div class="meta"><span>Audience: whoever installs and looks after Watchmen; no MuleSoft experience assumed</span><span>Version 1.0</span></div>
+</section>
+
+<!-- ============ 1. OVERVIEW ============ -->
+<section class="page">
+  <h2>1. What you are setting up</h2>
+  <p class="lead">Watchmen is a small program (a "Mule application") that runs on a computer, wakes up every hour, reads information from your company's MuleSoft Anypoint Platform account and shows it on a web page.</p>
+  <div class="flow">
+    <div class="node"><b>Anypoint Platform</b>Your MuleSoft account in the cloud</div>
+    <div class="arrow">➜</div>
+    <div class="node mid"><b>Watchmen</b>Runs on your PC or a server. Reads data every hour and stores it in a small local database.</div>
+    <div class="arrow">➜</div>
+    <div class="node"><b>You</b>Open <code>http://localhost:5050</code> in a browser. Optionally receive alert emails.</div>
+  </div>
+  <div class="callout ok"><b>It is safe to try.</b> Watchmen only <b>reads</b> from Anypoint. It cannot deploy, change or delete anything in your MuleSoft account.</div>
+
+  <h3>How long it takes</h3>
+  <table>
+    <tr><th>Task</th><th style="width:28%">Who</th><th style="width:18%">Time</th></tr>
+    <tr><td>Install Java and Anypoint Studio (if not already installed)</td><td>You / IT</td><td>30–45 min</td></tr>
+    <tr><td>Create the Connected App in Anypoint</td><td>Anypoint administrator</td><td>15 min</td></tr>
+    <tr><td>Open the project, add credentials, start it</td><td>You</td><td>15 min</td></tr>
+    <tr><td>First-run checks (confirm meter names, contract dates)</td><td>You + platform owner</td><td>30–60 min</td></tr>
+  </table>
+
+  <h3>What you will have at the end</h3>
+  <ul>
+    <li>A dashboard in your browser with six tabs: <b>Overview, Alerts, Audit log, Inventory, Jobs, Settings</b>.</li>
+    <li>Data refreshed automatically every 60 minutes while Watchmen is running.</li>
+    <li>Optional: alert emails to a list of people you choose.</li>
+  </ul>
+</section>
+
+<!-- ============ 2. PREREQUISITES ============ -->
+<section class="page">
+  <h2>2. Shopping list: what you need</h2>
+  <p>Tick these off before you start. Items marked <span class="tag opt">optional</span> can be added later.</p>
+
+  <h3>On the computer</h3>
+  <table>
+    <tr><th style="width:6%"></th><th style="width:30%">Item</th><th>Details / where to get it</th></tr>
+    <tr><td><span class="check"></span></td><td><b>A Windows, Mac or Linux computer</b></td><td>8 GB RAM or more, about 3 GB free disk space, and internet access to <code>anypoint.mulesoft.com</code>. A company proxy or firewall must allow it.</td></tr>
+    <tr><td><span class="check"></span></td><td><b>Java 17</b></td><td>The language Mule runs on. To check, open a terminal and type <code>java -version</code>; it should say 17. Install from Oracle or "Eclipse Temurin 17" if missing.</td></tr>
+    <tr><td><span class="check"></span></td><td><b>Anypoint Studio 7.x</b></td><td>MuleSoft's free desktop tool for running Mule applications. Download from the MuleSoft website (needs a free MuleSoft account). It includes the Mule 4 runtime.</td></tr>
+    <tr><td><span class="check"></span></td><td><b>The Watchmen project folder</b></td><td>The folder named <span class="path">anypoint-watchmen</span>. Copy it anywhere on the computer, for example <code>C:\Projects\anypoint-watchmen</code>.</td></tr>
+    <tr><td><span class="check"></span></td><td><b>A web browser</b></td><td>Edge, Chrome or Firefox.</td></tr>
+    <tr><td><span class="check"></span></td><td><b>Apache Maven 3.9</b> <span class="tag opt">optional</span></td><td>Only needed to run the automated tests or build from the command line. Studio already has what it needs.</td></tr>
+  </table>
+
+  <h3>From your MuleSoft / Anypoint account</h3>
+  <table>
+    <tr><th style="width:6%"></th><th style="width:30%">Item</th><th>Details</th></tr>
+    <tr><td><span class="check"></span></td><td><b>An Anypoint administrator</b></td><td>Someone who can open <i>Access Management</i> and create Connected Apps. Step 2 is done by them.</td></tr>
+    <tr><td><span class="check"></span></td><td><b>Client ID and Client Secret</b></td><td>The "username and password" of the Connected App created in Step 2. <b>Treat the secret like a password.</b></td></tr>
+    <tr><td><span class="check"></span></td><td><b>Organization ID</b></td><td>A long ID like <code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code> that identifies your root organisation. Step 2 shows where to find it.</td></tr>
+    <tr><td><span class="check"></span></td><td><b>"Usage Viewer" access</b></td><td>Needed to read licence consumption. The administrator grants it to the Connected App.</td></tr>
+  </table>
+
+  <h3>From the business</h3>
+  <table>
+    <tr><th style="width:6%"></th><th style="width:30%">Item</th><th>Details</th></tr>
+    <tr><td><span class="check"></span></td><td><b>Contract figures</b></td><td>The limits, contract start and end month from the latest MuleSoft usage summary (invoice).</td></tr>
+    <tr><td><span class="check"></span></td><td><b>Alert recipients</b></td><td>Email addresses of the people who should be told about alerts.</td></tr>
+    <tr><td><span class="check"></span></td><td><b>A sending email account</b> <span class="tag opt">optional</span></td><td>For alert emails, for example a Gmail account with an <i>App Password</i>, or your company's SMTP server details.</td></tr>
+  </table>
+</section>
+
+<!-- ============ STEPS 1-2 ============ -->
+<section class="page">
+  <h2>3. Step by step</h2>
+
+  <div class="step"><div class="n">1</div><div>
+    <h3>Install the software</h3>
+    <ol>
+      <li>Install <b>Java 17</b>. Afterwards, open a terminal (Windows: press Start, type <i>cmd</i>) and run <code>java -version</code>. You should see <code>17.x</code>.</li>
+      <li>Download and unzip <b>Anypoint Studio</b>. Start it, choose a workspace folder when asked, and sign in with your MuleSoft account if prompted.</li>
+    </ol>
+  </div></div>
+
+  <div class="step"><div class="n">2</div><div>
+    <h3>Create the Anypoint "robot login" (Connected App)</h3>
+    <p>Watchmen logs in to Anypoint by itself, without a person. For that, an <b>administrator</b> creates a Connected App:</p>
+    <ol>
+      <li>Sign in at <code>anypoint.mulesoft.com</code> and open <span class="click">Access Management</span> <span class="click">Connected Apps</span> <span class="click">Create app</span>.</li>
+      <li>Name it <b>Watchmen Dashboard</b>. Choose <b>"App acts on its own behalf (client credentials)"</b>.</li>
+      <li>Click <span class="click">Add Scopes</span> and add <b>read-only</b> scopes for: usage reports (<i>Usage Viewer</i>), audit log (<i>View Audit Logs</i>), organisation and environments (<i>View Organization</i>, <i>View Environment</i>), Runtime Manager applications (read/view applications) and API Manager (view APIs). Select the root business group and all environments.</li>
+      <li>Save. Open the app and use <span class="click">Copy Id</span> and <span class="click">Copy Secret</span>. Send them to the person installing Watchmen <b>securely</b>, for example through a password manager, never by plain email or chat.</li>
+      <li>Find the <b>Organization ID</b>: <span class="click">Access Management</span> <span class="click">Business Groups</span>, then click the top (root) group. The ID is shown on that page and in the browser address bar.</li>
+    </ol>
+    <div class="callout small">Scope names vary slightly between Anypoint versions. If a later step fails with "403 Forbidden", the Connected App is missing a scope. Ask the administrator to add the one for that area (usage, audit, applications or APIs).</div>
+  </div></div>
+</section>
+
+<!-- ============ STEPS 3-5 ============ -->
+<section class="page">
+  <div class="step"><div class="n">3</div><div>
+    <h3>Open the project in Anypoint Studio</h3>
+    <ol>
+      <li>In Studio: <span class="click">File</span> <span class="click">Import…</span> <span class="click">Anypoint Studio</span> <span class="click">Anypoint Studio project from File System</span> <span class="click">Next</span>.</li>
+      <li>For <i>Project Root</i>, browse to the <span class="path">anypoint-watchmen</span> folder. Click <span class="click">Finish</span>.</li>
+      <li>Wait until the bottom-right progress bar finishes (the first time, Studio downloads components; this can take several minutes).</li>
+    </ol>
+  </div></div>
+
+  <div class="step"><div class="n">4</div><div>
+    <h3>Give it the credentials</h3>
+    <p>The credentials are <b>not</b> typed into any project file, so they can never be shared by accident. They are given to Studio when it starts the app:</p>
+    <ol>
+      <li><span class="click">Run</span> <span class="click">Run Configurations…</span>. In the left list, under <i>Mule Applications</i>, select <b>anypoint-watchmen</b>. If it is not there, double-click <i>Mule Applications</i> to create it and tick the project.</li>
+      <li>Open the <span class="click">Arguments</span> tab and add these three lines to the arguments box, replacing the parts in angle brackets with the values from Step 2:</li>
+    </ol>
+    <pre class="code">-M-Danypoint.client.id=&lt;your client id&gt;
+-M-Danypoint.client.secret=&lt;your client secret&gt;
+-M-Danypoint.orgId=&lt;your organization id&gt;</pre>
+    <ol start="3"><li>Click <span class="click">Apply</span>.</li></ol>
+  </div></div>
+
+  <div class="step"><div class="n">5</div><div>
+    <h3>Start it and open the dashboard</h3>
+    <ol>
+      <li>In the same window click <span class="click">Run</span>. Alternatively, right-click the project, then <span class="click">Run As</span> <span class="click">Mule Application</span>.</li>
+      <li>Watch the <i>Console</i> at the bottom. When you see <b>DEPLOYED</b> next to <i>anypoint-watchmen</i>, it is running.</li>
+      <li>Open a browser at <b><code>http://localhost:5050</code></b>.</li>
+    </ol>
+    <div class="callout">The first automatic data collection starts about <b>1 minute</b> after start-up and then repeats every 60 minutes. You do not have to wait. Open the <b>Jobs</b> tab and click <b>Run collect_all</b>, then refresh after about 30 seconds.</div>
+    <p class="small muted">Watchmen only collects while it is running. If the computer sleeps or Studio is closed, collection pauses. On the next run, the audit log continues from where it stopped, looking back up to 24 hours by default.</p>
+  </div></div>
+</section>
+
+<!-- ============ STEP 6 + EMAIL ============ -->
+<section class="page">
+  <div class="step"><div class="n">6</div><div>
+    <h3>First-run checks (do these once)</h3>
+    <p><b>a) Check the job worked.</b> In the <b>Jobs</b> tab, the latest <i>collect_all</i> row should say <b>success</b>. If it says <b>partial</b> or <b>failed</b>, the <i>Result</i> column says which part failed. See Troubleshooting.</p>
+
+    <p><b>b) Confirm the usage meter names.</b> Anypoint names each usage measurement (a "meter"). Only some of the names in Watchmen's settings file are confirmed. To see the real names for your account, open this address in the browser while Watchmen is running:</p>
+    <pre class="code">http://localhost:5050/api/usage/meters</pre>
+    <p>Then, in Studio, open <span class="path">src/main/resources/config/entitlements.json</span>. For each line whose <code>"verified"</code> is <code>false</code>, set <code>meter</code> and <code>measurement</code> to the matching names from that list and change <code>verified</code> to <code>true</code>. Ask your MuleSoft account team if a name is unclear.</p>
+
+    <p><b>c) Enter the contract details.</b> In the same file, set the <code>contract</code> section (<code>id</code>, <code>start</code>, <code>end</code> as <code>YYYY-MM</code>) and check every <code>limit</code> against the invoice.</p>
+
+    <p><b>d) Restart</b> the app (red stop button, then Run again) so the changes take effect, and run <i>collect_all</i> once more.</p>
+  </div></div>
+
+  <h2 style="margin-top:6mm">4. Optional: email alerts</h2>
+  <ol>
+    <li>In <span class="path">src/main/resources/config/app.yaml</span>, under <code>email:</code>, set <code>enabled: "true"</code>, <code>from:</code> to the sending address and <code>smtp.user:</code> to the account username. Gmail defaults are already filled in (<code>smtp.gmail.com</code>, port <code>465</code>).</li>
+    <li>Add the email password as one more run argument (Step 4). For Gmail this must be an <b>App Password</b> created in the Google account's security settings:
+      <pre class="code">-M-Demail.smtp.password=&lt;app password&gt;</pre></li>
+    <li>Restart, then open the dashboard <b>Settings</b> tab, enter the recipients (one per line) and click <b>Save settings</b>.</li>
+  </ol>
+  <div class="callout small">Emails list every new or escalated alert since the previous email. If sending fails, Watchmen tries again on the next run, so nothing is lost.</div>
+
+  <h3>Settings you can change, and where</h3>
+  <table>
+    <tr><th style="width:38%">Setting</th><th style="width:22%">Default</th><th>Where to change</th></tr>
+    <tr><td>Alert recipients</td><td>none</td><td>Dashboard → Settings</td></tr>
+    <tr><td>Audit actions ignored</td><td>login, logout, read, view, list, search, get, permissions change</td><td>Dashboard → Settings</td></tr>
+    <tr><td>Auto-close audit alerts after</td><td>7 days</td><td>Dashboard → Settings</td></tr>
+    <tr><td>Warning / Critical threshold</td><td>80% / 95%</td><td><code>app.yaml</code> → <code>alerts</code></td></tr>
+    <tr><td>Collection frequency</td><td>60 minutes</td><td><code>app.yaml</code> → <code>scheduler</code></td></tr>
+    <tr><td>Dashboard port</td><td>5050</td><td><code>app.yaml</code> → <code>http.port</code></td></tr>
+    <tr><td>Which changes are Critical / Warning</td><td>predefined rules</td><td><code>config/audit_rules.json</code></td></tr>
+    <tr><td>Contract limits</td><td>from invoice</td><td><code>config/entitlements.json</code></td></tr>
+  </table>
+</section>
+
+<!-- ============ EVERYDAY USE + TROUBLESHOOTING ============ -->
+<section class="page">
+  <h2>5. Everyday use</h2>
+  <table>
+    <tr><th style="width:18%">Tab</th><th>What it shows / what to do</th></tr>
+    <tr><td><b>Overview</b></td><td>Alert counts and the <i>Contract entitlements</i> table: used, limit, % and status (OK / WARNING / CRITICAL). Below it, monitoring-only metrics that never alert.</td></tr>
+    <tr><td><b>Alerts</b></td><td>All alerts. Click <b>Acknowledge</b> when someone is looking at it and <b>Resolve</b> when it is dealt with. Licence alerts also close themselves when usage drops.</td></tr>
+    <tr><td><b>Audit log</b></td><td>Significant changes made in Anypoint (who, what, when), filterable by Critical / Warning / Info. Below it, a history of each hourly audit check.</td></tr>
+    <tr><td><b>Inventory</b></td><td>Applications, APIs, environments and business groups found in the latest collection.</td></tr>
+    <tr><td><b>Jobs</b></td><td>History of every collection run, plus buttons to run one now.</td></tr>
+    <tr><td><b>Settings</b></td><td>Recipients and audit options (editable), plus read-only values from <code>app.yaml</code>.</td></tr>
+  </table>
+
+  <h2 style="margin-top:6mm">6. Troubleshooting</h2>
+  <table>
+    <tr><th style="width:36%">What you see</th><th>What it means / what to do</th></tr>
+    <tr><td>App will not start: <i>"Couldn't find configuration property value for key anypoint.client.id"</i></td><td>The run arguments from Step 4 are missing or mistyped. Each line must start with <code>-M-D</code>.</td></tr>
+    <tr><td><i>"Address already in use"</i> / port 5050</td><td>Another program uses port 5050. Change <code>http.port</code> in <code>app.yaml</code> (for example to 5051) and use that in the browser address.</td></tr>
+    <tr><td>Jobs tab: <b>failed</b> with <i>401</i> or <i>"no access_token"</i></td><td>Client ID or Secret is wrong, or the Connected App was deleted or its secret regenerated. Re-copy them (Step 2).</td></tr>
+    <tr><td>Jobs tab: <i>403 Forbidden</i> on usage, audit, apps or APIs</td><td>The Connected App lacks a scope for that area. The administrator adds it. Other parts keep working meanwhile.</td></tr>
+    <tr><td>Some meters listed as failed, or showing 0</td><td>The meter name in <code>entitlements.json</code> is not right for your account. Do first-run check 6b. Remember Anypoint usage data is about 3 days behind.</td></tr>
+    <tr><td>Audit log tab is empty</td><td>Normal if nobody changed anything significant recently: routine events are deliberately ignored. Check the <i>Recent audit polls</i> table shows <b>success</b>.</td></tr>
+    <tr><td>No emails arrive</td><td>Check <code>email.enabled</code> is <code>"true"</code>, recipients are saved, and the password argument is set. The Studio Console shows <i>"Alert email failed: …"</i> with the reason. Check spam folders too.</td></tr>
+    <tr><td>Dashboard shows "API unreachable"</td><td>Watchmen is not running. Start it again in Studio (Step 5).</td></tr>
+  </table>
+  <p class="small muted">Studio's Console shows everything Watchmen does. Lines starting with <code>watchmen.</code> are the most useful. When running outside Studio, the same lines go to <code>logs/anypoint-watchmen.log</code>.</p>
+</section>
+
+<!-- ============ SERVER / CLOUD + FOR IT ============ -->
+<section class="page">
+  <h2>7. Running on a server or in the cloud</h2>
+  <p>Running in Studio on a laptop is ideal for trying Watchmen out. For continuous monitoring it should run somewhere that is always on. Your IT or MuleSoft team can do this:</p>
+  <div class="two">
+    <div>
+      <h3>Option A: CloudHub 2.0 (recommended)</h3>
+      <ul class="small">
+        <li>Deploy the app from Studio or Runtime Manager to a small (0.1 vCore) replica.</li>
+        <li>Enter the credentials in Runtime Manager → <i>Properties</i> and mark them <b>secure</b>.</li>
+        <li>Use a <b>PostgreSQL</b> database instead of the built-in file database, which does not survive restarts on CloudHub. Set <code>db.url</code>, <code>db.driver</code> (<code>org.postgresql.Driver</code>), <code>db.user</code>, <code>db.password</code>.</li>
+        <li>Note: one Watchmen replica consumes a small amount of your own vCore entitlement.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Option B: an on-premises server</h3>
+      <ul class="small">
+        <li>Install a Mule 4.8 runtime (or Studio) on an always-on server with Java 17.</li>
+        <li>Build the package with <code>mvn clean package</code> and copy the <code>.jar</code> from <code>target/</code> into the runtime's <code>apps</code> folder.</li>
+        <li>Pass the same <code>-M-D…</code> values when starting the runtime.</li>
+        <li>Keep the dashboard on the internal network: it has no login yet.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 style="margin-top:6mm">8. Where things live (for IT)</h2>
+  <table>
+    <tr><th style="width:42%">Path in the project</th><th>Purpose</th></tr>
+    <tr><td><code>src/main/mule/*.xml</code></td><td>The application logic: login (auth), usage, audit, alerts, inventory, jobs, settings, web API.</td></tr>
+    <tr><td><code>src/main/resources/config/app.yaml</code></td><td>Port, database, schedule, thresholds, email server.</td></tr>
+    <tr><td><code>src/main/resources/config/entitlements.json</code></td><td>Contract limits and usage meter names.</td></tr>
+    <tr><td><code>src/main/resources/config/audit_rules.json</code></td><td>Which audit changes are Critical or Warning.</td></tr>
+    <tr><td><code>src/main/resources/web/index.html</code></td><td>The dashboard page.</td></tr>
+    <tr><td><code>src/test/munit/</code></td><td>Automated tests. Run with <code>mvn clean test</code>. They use fake data and need no Anypoint access.</td></tr>
+    <tr><td><code>~/watchmen-data/</code> (your home folder)</td><td>The local database file created when running in Studio. Delete it to start fresh.</td></tr>
+  </table>
+  <h3>Security notes</h3>
+  <ul class="small">
+    <li>Never put the Client Secret or email password in any file in the project. Use run arguments or secure properties only.</li>
+    <li>If a secret is ever shared by mistake (email, chat, a document), ask the administrator to <b>regenerate</b> it in the Connected App.</li>
+    <li>Give the Connected App read-only scopes only. Watchmen needs nothing else.</li>
+  </ul>
+</section>
+
+<!-- ============ GLOSSARY ============ -->
+<section class="page">
+  <h2>9. Glossary</h2>
+  <table>
+    <tr><th style="width:26%">Term</th><th>Plain-language meaning</th></tr>
+    <tr><td><b>Anypoint Platform</b></td><td>MuleSoft's website and cloud service where integrations and APIs are built, deployed and managed.</td></tr>
+    <tr><td><b>Anypoint Studio</b></td><td>The free desktop program used to open and run Mule projects such as Watchmen.</td></tr>
+    <tr><td><b>Mule application</b></td><td>A program that runs on the Mule runtime. Watchmen is one.</td></tr>
+    <tr><td><b>Connected App</b></td><td>A "robot" login in Anypoint that a program uses instead of a person. It has a Client ID and a Client Secret.</td></tr>
+    <tr><td><b>Client ID / Client Secret</b></td><td>The username and password of the Connected App.</td></tr>
+    <tr><td><b>Organization ID</b></td><td>The unique ID of your company's top-level Anypoint account.</td></tr>
+    <tr><td><b>Business group</b></td><td>A sub-division of the Anypoint account, such as a team or department.</td></tr>
+    <tr><td><b>Environment</b></td><td>A separate space such as Sandbox or Production inside a business group.</td></tr>
+    <tr><td><b>Entitlement</b></td><td>Something the contract allows a fixed amount of, such as 280 Mule Flows.</td></tr>
+    <tr><td><b>Meter</b></td><td>Anypoint's name for one thing it measures, such as the number of flows or messages.</td></tr>
+    <tr><td><b>High watermark</b></td><td>Billing on the <i>peak</i> amount reached, for example the most flows running at once.</td></tr>
+    <tr><td><b>Drawdown</b></td><td>A pool used up over the contract period, for example 47 million messages in total.</td></tr>
+    <tr><td><b>Audit log</b></td><td>Anypoint's record of who changed what, and when.</td></tr>
+    <tr><td><b>Job</b></td><td>One collection run. <i>collect_all</i> runs every hour; others can be started from the Jobs tab.</td></tr>
+    <tr><td><b>localhost:5050</b></td><td>"This computer, door number 5050": the address of the dashboard while Watchmen runs on your machine.</td></tr>
+    <tr><td><b>Run argument (-M-D…)</b></td><td>A value handed to the app when it starts, used here to pass secrets without saving them in files.</td></tr>
+  </table>
+  <div class="callout ok" style="margin-top:6mm"><b>Quick-start recap:</b> install Java 17 and Studio → admin creates Connected App → import project → add the three <code>-M-D</code> arguments → Run → open <code>http://localhost:5050</code> → Jobs → <i>Run collect_all</i> → confirm meter names and contract dates.</div>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+	xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!-- Pure-logic tests for the DataWeave modules (no Anypoint or DB calls) -->
+	<munit:config name="watchmen-logic-test-suite.xml" />
+
+	<munit:test name="risk-classifier-test" description="Combos beat broad actions; exact object_type; substring subaction">
+		<munit:execution>
+			<ee:transform>
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+import classifyRisk, isExcluded from modules::risk
+output application/java
+var rules = readUrl("classpath://config/audit_rules.json", "application/json")
+---
+{
+	connectedAppDelete: classifyRisk({ object_type: "connected application", action: "Delete" }, rules),
+	secretRotation:     classifyRisk({ object_type: "Connected Application", action: "update", subaction: "Client Secret Regenerated" }, rules),
+	appUpdate:          classifyRisk({ object_type: "Application", action: "Update" }, rules),
+	partialTypeNoMatch: classifyRisk({ object_type: "Application Deployment", action: "delete" }, rules),
+	broadCreate:        classifyRisk({ object_type: "Something", action: "create" }, rules),
+	plainRead:          classifyRisk({ object_type: "Application", action: "read" }, rules),
+	loginExcluded:      isExcluded({ action: "Login" }, ["login", "logout"])
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+		</munit:execution>
+		<munit:validation>
+			<munit-tools:assert-equals actual="#[payload.connectedAppDelete]" expected="critical" />
+			<munit-tools:assert-equals actual="#[payload.secretRotation]" expected="critical" />
+			<munit-tools:assert-equals actual="#[payload.appUpdate]" expected="warning" />
+			<munit-tools:assert-equals actual="#[payload.partialTypeNoMatch]" expected="info" />
+			<munit-tools:assert-equals actual="#[payload.broadCreate]" expected="warning" />
+			<munit-tools:assert-equals actual="#[payload.plainRead]" expected="info" />
+			<munit-tools:assert-equals actual="#[payload.loginExcluded]" expected="#[true]" />
+		</munit:validation>
+	</munit:test>
+
+	<munit:test name="entitlement-status-test" description="Drawdown sums months, high watermark takes max, MONITOR never alerts">
+		<munit:execution>
+			<ee:transform>
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+import computeStatuses from modules::usage
+output application/java
+var cfg = { entitlements: [
+	{ key: "msgs",  name: "Mule Messages", usage_model: "DRAWDOWN",       limit: 100, unit: "m" },
+	{ key: "flows", name: "Mule Flows",    usage_model: "HIGH_WATERMARK", limit: 10,  unit: "f" },
+	{ key: "tok",   name: "Tokens",        usage_model: "MONITOR",        limit: 0,   unit: "t" }
+]}
+var records = [
+	{ meter_key: "msgs",  period: "2026-08", usage_value: 50 },
+	{ meter_key: "msgs",  period: "2026-09", usage_value: 40 },
+	{ meter_key: "flows", period: "2026-08", usage_value: 7 },
+	{ meter_key: "flows", period: "2026-09", usage_value: 5 },
+	{ meter_key: "tok",   period: "2026-08", usage_value: 999 },
+	{ meter_key: "tok",   period: "2026-09", usage_value: 123 }
+]
+var s = computeStatuses(cfg, records, "2026-09", 80, 95, "2026-09-30T00:00:00Z")
+---
+{ msgs: s[0], flows: s[1], tok: s[2] }]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+		</munit:execution>
+		<munit:validation>
+			<munit-tools:assert-equals actual="#[payload.msgs.usage_value]" expected="#[90]" />
+			<munit-tools:assert-equals actual="#[payload.msgs.status]" expected="WARNING" />
+			<munit-tools:assert-equals actual="#[payload.flows.usage_value]" expected="#[7]" />
+			<munit-tools:assert-equals actual="#[payload.flows.status]" expected="OK" />
+			<munit-tools:assert-equals actual="#[payload.tok.usage_value]" expected="#[123]" />
+			<munit-tools:assert-equals actual="#[payload.tok.status]" expected="MONITOR" />
+		</munit:validation>
+	</munit:test>
+
+	<munit:test name="usage-alert-plan-test" description="New, escalated and recovered meters produce insert, update and resolve">
+		<munit:execution>
+			<ee:transform>
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+import planUsageAlerts from modules::alerts
+output application/java
+var statuses = [
+	{ meter_key: "a", name: "A", status: "WARNING",  pct_used: 85, usage_value: 85, limit_value: 100, unit: "x" },
+	{ meter_key: "b", name: "B", status: "CRITICAL", pct_used: 97, usage_value: 97, limit_value: 100, unit: "x" },
+	{ meter_key: "c", name: "C", status: "OK",       pct_used: 10, usage_value: 10, limit_value: 100, unit: "x" }
+]
+var open = [
+	{ id: 1, subject: "b", severity: "warning" },
+	{ id: 2, subject: "c", severity: "warning" }
+]
+---
+planUsageAlerts(statuses, open, "2026-09-30T00:00:00Z")]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+		</munit:execution>
+		<munit:validation>
+			<munit-tools:assert-equals actual="#[payload.inserts map $.subject]" expected="#[['a']]" />
+			<munit-tools:assert-equals actual="#[payload.updates map $.id]" expected="#[[1]]" />
+			<munit-tools:assert-equals actual="#[payload.updates[0].severity]" expected="critical" />
+			<munit-tools:assert-equals actual="#[payload.resolves map $.id]" expected="#[[2]]" />
+		</munit:validation>
+	</munit:test>
+
+	<munit:test name="usage-response-parsing-test" description="Sums the measurement at any depth of a meters:search response">
+		<munit:execution>
+			<ee:transform>
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+import sumMeasurement from modules::usage
+output application/java
+---
+sumMeasurement({ data: [ { timestamp: 1, mule_flow_count: 12 }, { timestamp: 2, mule_flow_count: "3" }, { other: 99 } ] }, "mule_flow_count")]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+		</munit:execution>
+		<munit:validation>
+			<munit-tools:assert-equals actual="#[payload]" expected="#[15]" />
+		</munit:validation>
+	</munit:test>
+
+</mule>

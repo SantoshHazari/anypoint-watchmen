@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Configuration>
+	<Appenders>
+		<Console name="Console" target="SYSTEM_OUT">
+			<PatternLayout pattern="%-5p %d [%t] %c: %m%n" />
+		</Console>
+	</Appenders>
+	<Loggers>
+		<AsyncLogger name="org.mule.service.http" level="WARN" />
+		<AsyncLogger name="org.mule.extension.http" level="WARN" />
+		<AsyncLogger name="watchmen" level="INFO" />
+		<AsyncRoot level="INFO">
+			<AppenderRef ref="Console" />
+		</AsyncRoot>
+	</Loggers>
+</Configuration>

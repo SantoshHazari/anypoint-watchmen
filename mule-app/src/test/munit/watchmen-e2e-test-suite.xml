@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+	xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+
+	<!--
+		End-to-end: real flows + real SQL on in-memory H2, Anypoint HTTP calls mocked by doc:name.
+		Runs collect_all twice to prove alerts are not duplicated, then reads back through the API flows.
+	-->
+	<munit:config name="watchmen-e2e-test-suite.xml" />
+
+	<munit:before-test name="mock-anypoint">
+		<munit-tools:mock-when processor="http:request">
+			<munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="POST oauth2/token" /></munit-tools:with-attributes>
+			<munit-tools:then-return><munit-tools:payload value='#[output application/json --- {access_token: "tok-123", expires_in: 3600}]' mediaType="application/json" /></munit-tools:then-return>
+		</munit-tools:mock-when>
+		<munit-tools:mock-when processor="http:request">
+			<munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Org hierarchy" /></munit-tools:with-attributes>
+			<munit-tools:then-return><munit-tools:payload value='#[output application/json --- {id: "root", name: "Root Org", subOrganizations: [{id: "bg1", name: "Sandbox BG", subOrganizations: []}]}]' mediaType="application/json" /></munit-tools:then-return>
+		</munit-tools:mock-when>
+		<munit-tools:mock-when processor="http:request">
+			<munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Environments" /></munit-tools:with-attributes>
+			<munit-tools:then-return><munit-tools:payload value='#[output application/json --- {data: [{id: "env-1", name: "Sandbox", "type": "sandbox", isProduction: false}]}]' mediaType="application/json" /></munit-tools:then-return>
+		</munit-tools:mock-when>
+		<munit-tools:mock-when processor="http:request">
+			<munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="CloudHub 2.0 deployments" /></munit-tools:with-attributes>
+			<munit-tools:then-return><munit-tools:payload value='#[output application/json --- {items: [{id: "dep-1", name: "orders-api", status: "APPLIED", application: {status: "RUNNING"}, currentRuntimeVersion: "4.8.1"}]}]' mediaType="application/json" /></munit-tools:then-return>
+		</munit-tools:mock-when>
+		<munit-tools:mock-when processor="http:request">
+			<munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="API Manager instances" /></munit-tools:with-attributes>
+			<munit-tools:then-return><munit-tools:payload value='#[output application/json --- {assets: [{assetId: "orders-api", apis: [{id: 101, assetVersion: "1.0.0", instanceLabel: "orders", status: "active"}]}]}]' mediaType="application/json" /></munit-tools:then-return>
+		</munit-tools:mock-when>
+		<munit-tools:mock-when processor="http:request">
+			<munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="meters:search" /></munit-tools:with-attributes>
+			<!-- Real Usage API shape. Queried for previous + current month: flows max 250/280 = 89% WARNING; messages 2 x 23M = 46M/47M = 97.9% CRITICAL -->
+			<munit-tools:then-return><munit-tools:payload value='#[output application/json --- {metadata: {lastUpdatedAt: "2026-10-01T05:00:00Z"}, data: [{timestamp: 1788220800000, mule_flow_count: 250.0, mule_message_count: 23000000.0, network_bytes_count: 1073741824000.0}]}]' mediaType="application/json" /></munit-tools:then-return>
+		</munit-tools:mock-when>
+		<munit-tools:mock-when processor="http:request">
+			<munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="GET actions" /></munit-tools:with-attributes>
+			<munit-tools:then-return><munit-tools:payload value='#[output application/json --- ["Create", "Delete", "Update", "Login"]]' mediaType="application/json" /></munit-tools:then-return>
+		</munit-tools:mock-when>
+		<munit-tools:mock-when processor="http:request">
+			<munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Audit query" /></munit-tools:with-attributes>
+			<munit-tools:then-return><munit-tools:payload value='#[output application/json --- {total: 3, data: [
+				{action: "Delete", timestamp: 1759300000000, userName: "alice", anypointTransactionId: "tx1", payload: {}, objects: [{objectType: "Connected Application", objectId: "ca1", objectName: "legacy-app", environmentId: null}]},
+				{action: "Login", timestamp: 1759300001000, userName: null, clientName: "some-app", anypointTransactionId: "tx2", payload: {subaction: "Token"}, objects: [{objectType: "Connected Application", objectId: "ca2", objectName: "some-app"}]},
+				{action: "Update", timestamp: 1759300002000, userName: "carol", anypointTransactionId: "tx3", payload: {}, objects: [{objectType: "Application", objectId: "app1", objectName: "orders-api", environmentId: "env-1"}]}
+			]}]' mediaType="application/json" /></munit-tools:then-return>
+		</munit-tools:mock-when>
+	</munit:before-test>
+
+	<munit:test name="collect-all-end-to-end-test">
+		<munit:execution>
+			<flow-ref name="init-db-flow" />
+			<set-variable variableName="jobName" value="collect_all" />
+			<set-variable variableName="jobTrigger" value="test" />
+			<flow-ref name="run-job" />
+			<!-- second run: same audit events and usage must not create new alerts -->
+			<flow-ref name="run-job" />
+		</munit:execution>
+		<munit:validation>
+			<db:select config-ref="Watchmen_DB">
+				<db:sql><![CDATA[SELECT status, message FROM job_run ORDER BY id]]></db:sql>
+			</db:select>
+			<logger level="INFO" category="watchmen.test" message="#['job_run: ' ++ write(payload, 'application/json')]" />
+			<munit-tools:assert-equals actual="#[sizeOf(payload)]" expected="#[2]" />
+			<munit-tools:assert-equals actual="#[payload[0].STATUS]" expected="success" />
+			<munit-tools:assert-equals actual="#[payload[1].STATUS]" expected="success" />
+
+			<db:select config-ref="Watchmen_DB">
+				<db:sql><![CDATA[SELECT meter_key, status FROM entitlement_status ORDER BY sort_order]]></db:sql>
+			</db:select>
+			<munit-tools:assert-equals actual="#[sizeOf(payload)]" expected="#[20]" />
+			<munit-tools:assert-equals actual="#[(payload filter $.METER_KEY == 'mule_flows')[0].STATUS]" expected="WARNING" />
+			<munit-tools:assert-equals actual="#[(payload filter $.METER_KEY == 'mule_messages')[0].STATUS]" expected="CRITICAL" />
+			<munit-tools:assert-equals actual="#[(payload filter $.METER_KEY == 'data_throughput')[0].STATUS]" expected="OK" />
+			<munit-tools:assert-equals actual="#[(payload filter $.METER_KEY == 'llm_total_tokens')[0].STATUS]" expected="MONITOR" />
+
+			<db:select config-ref="Watchmen_DB">
+				<db:sql><![CDATA[SELECT rule, severity, subject, notified FROM alert_event ORDER BY id]]></db:sql>
+			</db:select>
+			<logger level="INFO" category="watchmen.test" message="#['alerts: ' ++ write(payload, 'application/json')]" />
+			<munit-tools:assert-equals actual="#[sizeOf(payload)]" expected="#[4]" />
+			<munit-tools:assert-equals actual="#[sizeOf(payload filter $.RULE == 'usage_threshold')]" expected="#[2]" />
+			<munit-tools:assert-equals actual="#[(payload filter $.RULE == 'audit_risky_change') map $.SEVERITY orderBy $]" expected="#[['critical', 'warning']]" />
+			<munit-tools:assert-equals actual="#[sizeOf(payload filter $.NOTIFIED == 0)]" expected="#[0]" />
+
+			<db:select config-ref="Watchmen_DB">
+				<db:sql><![CDATA[SELECT object_name, risk, user_name FROM audit_event ORDER BY event_ts]]></db:sql>
+			</db:select>
+			<munit-tools:assert-equals actual="#[payload map $.OBJECT_NAME]" expected="#[['legacy-app', 'orders-api']]" />
+			<munit-tools:assert-equals actual="#[payload map $.RISK]" expected="#[['critical', 'warning']]" />
+
+			<db:select config-ref="Watchmen_DB">
+				<db:sql><![CDATA[SELECT status FROM audit_poll_run ORDER BY id]]></db:sql>
+			</db:select>
+			<munit-tools:assert-equals actual="#[payload map $.STATUS]" expected="#[['success', 'success']]" />
+
+			<!-- API flows read the same data back -->
+			<flow-ref name="get-entitlements-flow" />
+			<munit-tools:assert-equals actual="#[sizeOf(payload.entitlements)]" expected="#[9]" />
+			<munit-tools:assert-equals actual="#[sizeOf(payload.monitoring)]" expected="#[11]" />
+			<flow-ref name="get-inventory-flow" />
+			<munit-tools:assert-equals actual="#[sizeOf(payload.businessGroups)]" expected="#[2]" />
+			<munit-tools:assert-equals actual="#[sizeOf(payload.applications)]" expected="#[1]" />
+			<flow-ref name="get-settings-flow" />
+			<munit-tools:assert-equals actual="#[payload.'audit.auto_resolve_days']" expected="#[7]" />
+		</munit:validation>
+	</munit:test>
+
+</mule>

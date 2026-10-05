@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!--
+		Two alert sources write to alert_event:
+		  usage_threshold    - entitlement at/over warning or critical % (MONITOR meters never alert)
+		  audit_risky_change - critical/warning audit event; auto-resolves after audit.auto_resolve_days
+		Lifecycle: open -> acknowledged -> resolved. notified=0 rows are emailed by notify-alerts.
+	-->
+
+	<!-- Inserts vars.newAlerts, skipping audit events that already raised an alert -->
+	<sub-flow name="insert-alerts">
+		<choice>
+			<when expression="#[not isEmpty(vars.newAlerts default [])]">
+				<db:bulk-insert doc:name="Insert alerts" config-ref="Watchmen_DB">
+					<db:bulk-input-parameters><![CDATA[#[vars.newAlerts]]]></db:bulk-input-parameters>
+					<db:sql><![CDATA[INSERT INTO alert_event (rule, severity, subject, message, status, source_ref, notified, created_at, updated_at)
+SELECT CAST(:rule AS VARCHAR(50)), CAST(:severity AS VARCHAR(20)), CAST(:subject AS VARCHAR(300)), CAST(:message AS VARCHAR(2000)), 'open',
+       CAST(:source_ref AS VARCHAR(200)), 0, CAST(:created_at AS VARCHAR(30)), CAST(:created_at AS VARCHAR(30))
+WHERE NOT EXISTS (
+  SELECT 1 FROM alert_event a
+  WHERE a.rule = CAST(:rule AS VARCHAR(50)) AND a.source_ref = CAST(:source_ref AS VARCHAR(200))
+    AND (a.rule = 'audit_risky_change' OR a.status <> 'resolved'))]]></db:sql>
+				</db:bulk-insert>
+			</when>
+		</choice>
+	</sub-flow>
+
+	<!-- Opens, escalates/de-escalates and auto-resolves usage alerts from entitlement_status -->
+	<sub-flow name="evaluate-usage-alerts">
+		<db:select doc:name="Entitlement statuses" config-ref="Watchmen_DB" target="statusRows">
+			<db:sql><![CDATA[SELECT meter_key, name, usage_value, limit_value, unit, pct_used, status FROM entitlement_status WHERE usage_model <> 'MONITOR' AND limit_value > 0]]></db:sql>
+		</db:select>
+		<db:select doc:name="Open usage alerts" config-ref="Watchmen_DB" target="openUsageAlerts">
+			<db:sql><![CDATA[SELECT id, subject, severity FROM alert_event WHERE rule = 'usage_threshold' AND status <> 'resolved']]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Plan alert changes">
+			<ee:variables>
+				<ee:set-variable variableName="alertPlan"><![CDATA[%dw 2.0
+import lowerKeys, nowIso from modules::util
+import planUsageAlerts from modules::alerts
+output application/java
+---
+planUsageAlerts(lowerKeys(vars.statusRows), lowerKeys(vars.openUsageAlerts), nowIso())]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<set-variable variableName="newAlerts" value="#[vars.alertPlan.inserts]" />
+		<flow-ref doc:name="insert-alerts" name="insert-alerts" />
+		<choice doc:name="Severity changes?">
+			<when expression="#[not isEmpty(vars.alertPlan.updates)]">
+				<db:bulk-update doc:name="Update severity" config-ref="Watchmen_DB">
+					<db:bulk-input-parameters><![CDATA[#[vars.alertPlan.updates]]]></db:bulk-input-parameters>
+					<db:sql><![CDATA[UPDATE alert_event SET severity = :severity, message = :message, updated_at = :updated_at, notified = 0 WHERE id = :id]]></db:sql>
+				</db:bulk-update>
+			</when>
+		</choice>
+		<choice doc:name="Back under threshold?">
+			<when expression="#[not isEmpty(vars.alertPlan.resolves)]">
+				<db:bulk-update doc:name="Auto-resolve" config-ref="Watchmen_DB">
+					<db:bulk-input-parameters><![CDATA[#[vars.alertPlan.resolves]]]></db:bulk-input-parameters>
+					<db:sql><![CDATA[UPDATE alert_event SET status = 'resolved', resolved_at = :at, updated_at = :at WHERE id = :id]]></db:sql>
+				</db:bulk-update>
+			</when>
+		</choice>
+		<set-variable variableName="jobMessage" value="#[output application/java --- (vars.jobMessage default '') ++ ' usage alerts: +' ++ sizeOf(vars.alertPlan.inserts) ++ ' new, ' ++ sizeOf(vars.alertPlan.resolves) ++ ' resolved;']" />
+		<remove-variable variableName="statusRows" />
+		<remove-variable variableName="openUsageAlerts" />
+	</sub-flow>
+
+	<sub-flow name="auto-resolve-audit-alerts">
+		<flow-ref doc:name="load-settings" name="load-settings" />
+		<db:update doc:name="Resolve old audit alerts" config-ref="Watchmen_DB">
+			<db:sql><![CDATA[UPDATE alert_event SET status = 'resolved', resolved_at = :now, updated_at = :now
+WHERE rule = 'audit_risky_change' AND status <> 'resolved' AND created_at < :cutoff]]></db:sql>
+			<db:input-parameters><![CDATA[#[%dw 2.0
+import isoUtc, nowIso from modules::util
+var days = (vars.settings['audit.auto_resolve_days'] default 7) as Number
+---
+{ now: nowIso(), cutoff: isoUtc(now() - ("P$(days)D" as Period)) }]]]></db:input-parameters>
+		</db:update>
+		<logger level="INFO" category="watchmen.alerts" message="#['Auto-resolved ' ++ payload.affectedRows ++ ' audit alerts']" />
+	</sub-flow>
+
+	<!-- Emails every unresolved alert not yet notified, then marks them notified -->
+	<sub-flow name="notify-alerts">
+		<db:select doc:name="Pending notifications" config-ref="Watchmen_DB" target="pendingAlerts">
+			<db:sql><![CDATA[SELECT id, rule, severity, subject, message, created_at FROM alert_event WHERE notified = 0 AND status <> 'resolved' ORDER BY id]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Normalize rows">
+			<ee:variables>
+				<ee:set-variable variableName="pendingAlerts"><![CDATA[%dw 2.0
+import lowerKeys from modules::util
+output application/java
+---
+lowerKeys(vars.pendingAlerts)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice doc:name="Anything to send?">
+			<when expression="#[not isEmpty(vars.pendingAlerts)]">
+				<flow-ref doc:name="load-settings" name="load-settings" />
+				<set-variable variableName="recipients" value="#[vars.settings['alerts.email.to'] default []]" />
+				<choice doc:name="Email enabled?">
+					<when expression="#[p('email.enabled') == 'true' and not isEmpty(vars.recipients)]">
+						<try doc:name="Send">
+							<ee:transform doc:name="Email body">
+								<ee:message>
+									<ee:set-payload><![CDATA[%dw 2.0
+output text/plain
+var colors = { critical: "#b42318", warning: "#b54708" }
+var rows = vars.pendingAlerts map ((a) ->
+	"<tr><td style='padding:6px 10px;color:$(colors[a.severity] default '#344054');font-weight:600'>$(upper(a.severity))</td>"
+	++ "<td style='padding:6px 10px'>$(a.subject)</td><td style='padding:6px 10px'>$(a.message)</td>"
+	++ "<td style='padding:6px 10px;white-space:nowrap'>$(a.created_at)</td></tr>")
+---
+"<div style='font-family:Segoe UI,Arial,sans-serif;font-size:14px'>"
+++ "<h2 style='margin:0 0 8px'>Anypoint Watchmen: $(sizeOf(vars.pendingAlerts)) new alert(s)</h2>"
+++ "<table style='border-collapse:collapse' border='1' bordercolor='#eaecf0'>"
+++ "<tr style='background:#f2f4f7'><th>Severity</th><th>Subject</th><th>Detail</th><th>Raised (UTC)</th></tr>"
+++ (rows joinBy "")
+++ "</table><p><a href='" ++ p('app.baseUrl') ++ "/'>Open the dashboard</a></p></div>"]]></ee:set-payload>
+								</ee:message>
+							</ee:transform>
+							<email:send doc:name="Send alert email" config-ref="Watchmen_SMTP" fromAddress="${email.from}"
+								toAddresses="#[vars.recipients]"
+								subject="#['[Watchmen] ' ++ sizeOf(vars.pendingAlerts) ++ ' new alert(s)' ++ (if (not isEmpty(vars.pendingAlerts filter ((a) -> a.severity == 'critical'))) ' - CRITICAL' else '')]">
+								<email:body contentType="text/html">
+									<email:content><![CDATA[#[payload]]]></email:content>
+								</email:body>
+							</email:send>
+							<logger level="INFO" category="watchmen.alerts" message="#['Alert email sent to ' ++ (vars.recipients joinBy ', ')]" />
+							<flow-ref doc:name="mark-notified" name="mark-notified" />
+							<error-handler>
+								<on-error-continue type="ANY">
+									<!-- left un-notified so the next run retries -->
+									<logger level="ERROR" category="watchmen.alerts" message="#['Alert email failed: ' ++ (error.description default '')]" />
+								</on-error-continue>
+							</error-handler>
+						</try>
+					</when>
+					<otherwise>
+						<logger level="INFO" category="watchmen.alerts" message="Email disabled or no recipients; marking alerts as notified" />
+						<flow-ref doc:name="mark-notified" name="mark-notified" />
+					</otherwise>
+				</choice>
+			</when>
+		</choice>
+		<remove-variable variableName="pendingAlerts" />
+	</sub-flow>
+
+	<sub-flow name="mark-notified">
+		<db:bulk-update doc:name="Mark notified" config-ref="Watchmen_DB">
+			<db:bulk-input-parameters><![CDATA[#[vars.pendingAlerts map { id: $.id }]]]></db:bulk-input-parameters>
+			<db:sql><![CDATA[UPDATE alert_event SET notified = 1 WHERE id = :id]]></db:sql>
+		</db:bulk-update>
+	</sub-flow>
+
+</mule>

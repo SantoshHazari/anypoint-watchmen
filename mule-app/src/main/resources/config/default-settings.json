@@ -1,0 +1,6 @@
+{
+  "alerts.email.to": [],
+  "audit.exclude_actions": ["login", "logout", "read", "view", "list", "search", "get", "permissions change"],
+  "audit.auto_resolve_days": 7,
+  "audit.max_lookback_hours": 24
+}

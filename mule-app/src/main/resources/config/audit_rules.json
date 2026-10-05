@@ -1,0 +1,33 @@
+{
+  "_comment": "Combos are checked before broad actions. object_type and action match exactly (case-insensitive); subaction matches as a substring. Anything unmatched is 'info'.",
+  "tiers": {
+    "critical": {
+      "combos": [
+        { "object_type": "Connected Application", "action": "delete" },
+        { "object_type": "Connected Application", "action": "update", "subaction": "secret" },
+        { "object_type": "Organization",          "action": "delete" },
+        { "object_type": "Environment",           "action": "delete" },
+        { "object_type": "Application",           "action": "delete" },
+        { "object_type": "API",                   "action": "delete" },
+        { "object_type": "Policy",                "action": "delete" },
+        { "object_type": "Team",                  "action": "update", "subaction": "role" },
+        { "object_type": "Identity Provider",     "action": "update" },
+        { "object_type": "Identity Provider",     "action": "delete" }
+      ],
+      "broad_actions": []
+    },
+    "warning": {
+      "combos": [
+        { "object_type": "Application",           "action": "update" },
+        { "object_type": "Application",           "action": "stop" },
+        { "object_type": "API",                   "action": "update" },
+        { "object_type": "Policy",                "action": "update" },
+        { "object_type": "Policy",                "action": "create" },
+        { "object_type": "Connected Application", "action": "update" },
+        { "object_type": "Business Group",        "action": "update" },
+        { "object_type": "User",                  "action": "delete" }
+      ],
+      "broad_actions": ["create"]
+    }
+  }
+}

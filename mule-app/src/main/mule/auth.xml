@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+
+	<!--
+		OAuth 2.0 client_credentials against the "Watchmen Dashboard" Connected App.
+		Sets vars.accessToken. Reuses the cached token until 90% of its lifetime has passed.
+	-->
+	<sub-flow name="get-access-token" doc:id="b1f0c6a2-0001-4a7e-9c11-000000000001">
+		<os:retrieve doc:name="Cached token" key="anypoint-token" objectStore="Token_Store" target="cachedToken">
+			<os:default-value><![CDATA[#[output application/java --- {}]]]></os:default-value>
+		</os:retrieve>
+		<choice doc:name="Token still valid?">
+			<when expression="#[(vars.cachedToken.token != null) and ((vars.cachedToken.expiresAt as DateTime) &gt; now())]">
+				<set-variable variableName="accessToken" value="#[vars.cachedToken.token]" doc:name="Use cached token" />
+			</when>
+			<otherwise>
+				<logger level="INFO" category="watchmen.auth" message="Requesting new Anypoint access token" />
+				<http:request method="POST" doc:name="POST oauth2/token" config-ref="Anypoint_HTTP_Request" path="/accounts/api/v2/oauth2/token">
+					<http:body><![CDATA[#[output application/x-www-form-urlencoded
+---
+{
+	grant_type: "client_credentials",
+	client_id: "${anypoint.client.id}",
+	client_secret: "${anypoint.client.secret}"
+}]]]></http:body>
+				</http:request>
+				<set-variable variableName="accessToken" value="#[payload.access_token]" doc:name="accessToken" />
+				<choice doc:name="Got a token?">
+					<when expression="#[vars.accessToken == null]">
+						<raise-error type="APP:AUTH" description="Token endpoint returned no access_token: check the Connected App client id/secret" />
+					</when>
+				</choice>
+				<os:store doc:name="Cache token" key="anypoint-token" objectStore="Token_Store">
+					<os:value><![CDATA[#[output application/java
+var ttlSeconds = floor((payload.expires_in default 3600) * 0.9)
+---
+{
+	token: vars.accessToken,
+	expiresAt: now() + ("PT$(ttlSeconds)S" as Period)
+}]]]></os:value>
+				</os:store>
+			</otherwise>
+		</choice>
+		<remove-variable variableName="cachedToken" />
+	</sub-flow>
+
+</mule>

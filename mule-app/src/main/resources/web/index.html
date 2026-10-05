@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anypoint Watchmen</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1d2939; --muted: #667085; --line: #eaecf0;
+    --accent: #0b6bcb; --ok: #067647; --warn: #b54708; --crit: #b42318; --mon: #6941c6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Arial, sans-serif; background: var(--bg); color: var(--text); }
+  header { background: #0f1b2d; color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  header .meta { color: #a9b4c4; font-size: 12px; margin-left: auto; }
+  nav { background: #fff; border-bottom: 1px solid var(--line); padding: 0 16px; display: flex; gap: 4px; overflow-x: auto; }
+  nav button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 12px 14px; font: inherit; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  nav button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  section[hidden] { display: none; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 18px; }
+  .card h2 { font-size: 15px; margin: 0 0 4px; }
+  .card .sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .tile .k { color: var(--muted); font-size: 12px; }
+  .tile .v { font-size: 22px; font-weight: 600; margin-top: 2px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; background: #fafbfc; white-space: nowrap; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bar { height: 6px; background: #eef0f3; border-radius: 3px; min-width: 90px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--ok); }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+  .s-OK, .s-success, .s-resolved { background: #ecfdf3; color: var(--ok); }
+  .s-WARNING, .s-warning, .s-partial, .s-acknowledged { background: #fffaeb; color: var(--warn); }
+  .s-CRITICAL, .s-critical, .s-failed, .s-open { background: #fef3f2; color: var(--crit); }
+  .s-MONITOR, .s-info { background: #f4f3ff; color: var(--mon); }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .btn { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  .btn:hover { border-color: #c5ccd6; }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.sel { background: #0f1b2d; color: #fff; border-color: #0f1b2d; }
+  .btn.small { padding: 3px 8px; font-size: 12px; }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  textarea, input[type=number] { width: 100%; max-width: 560px; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; }
+  .hint { color: var(--muted); font-size: 12px; }
+  .msg { margin-left: 8px; font-size: 13px; }
+  .empty { color: var(--muted); padding: 12px 0; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Anypoint Watchmen</h1>
+  <span class="meta" id="hdrMeta">loading…</span>
+</header>
+<nav id="tabs">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="alerts">Alerts</button>
+  <button data-tab="audit">Audit log</button>
+  <button data-tab="inventory">Inventory</button>
+  <button data-tab="jobs">Jobs</button>
+  <button data-tab="settings">Settings</button>
+</nav>
+<main>
+  <section id="overview">
+    <div class="tiles" id="tiles"></div>
+    <div class="card">
+      <h2>Contract entitlements</h2>
+      <div class="sub" id="contractSub"></div>
+      <div class="scroll" id="entTable"></div>
+    </div>
+    <div class="card">
+      <h2>Additional metrics: monitoring only</h2>
+      <div class="sub">Not on the contract, so no thresholds and no alerts.</div>
+      <div class="scroll" id="monTable"></div>
+    </div>
+  </section>
+
+  <section id="alerts" hidden>
+    <div class="card">
+      <div class="toolbar" id="alertFilters">
+        <button class="btn sel" data-v="unresolved">Unresolved</button>
+        <button class="btn" data-v="open">Open</button>
+        <button class="btn" data-v="acknowledged">Acknowledged</button>
+        <button class="btn" data-v="resolved">Resolved</button>
+        <button class="btn" data-v="all">All</button>
+      </div>
+      <div class="scroll" id="alertTable"></div>
+    </div>
+  </section>
+
+  <section id="audit" hidden>
+    <div class="card">
+      <div class="toolbar" id="auditFilters">
+        <button class="btn sel" data-v="all">All</button>
+        <button class="btn" data-v="critical">Critical</button>
+        <button class="btn" data-v="warning">Warning</button>
+        <button class="btn" data-v="info">Info</button>
+      </div>
+      <div class="scroll" id="auditTable"></div>
+    </div>
+    <div class="card">
+      <h2>Recent audit polls</h2>
+      <div class="scroll" id="pollTable"></div>
+    </div>
+  </section>
+
+  <section id="inventory" hidden>
+    <div class="tiles" id="invTiles"></div>
+    <div class="card"><h2>Applications</h2><div class="scroll" id="invApps"></div></div>
+    <div class="card"><h2>APIs</h2><div class="scroll" id="invApis"></div></div>
+    <div class="card"><h2>Environments</h2><div class="scroll" id="invEnvs"></div></div>
+    <div class="card"><h2>Business groups</h2><div class="scroll" id="invBgs"></div></div>
+  </section>
+
+  <section id="jobs" hidden>
+    <div class="card">
+      <div class="toolbar">
+        <button class="btn primary" data-job="collect_all">Run collect_all</button>
+        <button class="btn" data-job="collect_audit">collect_audit</button>
+        <button class="btn" data-job="collect_usage">collect_usage</button>
+        <button class="btn" data-job="collect_inventory">collect_inventory</button>
+        <span class="msg" id="jobMsg"></span>
+      </div>
+      <div class="sub" id="jobSub"></div>
+      <div class="scroll" id="jobTable"></div>
+    </div>
+  </section>
+
+  <section id="settings" hidden>
+    <div class="card">
+      <h2>Alert email recipients</h2>
+      <div class="sub">One address per line. Used by every job that sends alert emails.</div>
+      <textarea id="setRecipients" rows="4"></textarea>
+      <h2 style="margin-top:20px">Audit log</h2>
+      <label for="setExclude">Excluded at API level</label>
+      <textarea id="setExclude" rows="3"></textarea>
+      <div class="hint">Comma-separated actions. These are never requested from the Audit API.</div>
+      <label for="setResolve">Auto-resolve audit alerts after (days)</label>
+      <input type="number" id="setResolve" min="1">
+      <label for="setLookback">Max lookback when no prior poll (hours)</label>
+      <input type="number" id="setLookback" min="1">
+      <div style="margin-top:16px"><button class="btn primary" id="saveSettings">Save settings</button><span class="msg" id="setMsg"></span></div>
+    </div>
+    <div class="card">
+      <h2>Fixed in app properties</h2>
+      <div class="sub">Change these in config/app.yaml or as runtime properties.</div>
+      <div class="scroll" id="roTable"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = (v, d = 0) => v == null ? '–' : Number(v).toLocaleString(undefined, { maximumFractionDigits: d });
+const pill = (s) => `<span class="pill s-${esc(s)}">${esc(s)}</span>`;
+const ts = (v) => v ? esc(String(v).replace('T', ' ').replace('Z', '')) : '–';
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message || res.statusText);
+  return body;
+}
+
+function table(cols, rows, empty = 'Nothing yet.') {
+  if (!rows || !rows.length) return `<div class="empty">${empty}</div>`;
+  return `<table><thead><tr>${cols.map(c => `<th${c.num ? ' style="text-align:right"' : ''}>${c.h}</th>`).join('')}</tr></thead><tbody>` +
+    rows.map(r => `<tr>${cols.map(c => `<td${c.num ? ' class="num"' : ''}>${c.f ? c.f(r) : esc(r[c.k])}</td>`).join('')}</tr>`).join('') +
+    '</tbody></table>';
+}
+
+/* ---------- Tabs ---------- */
+const loaders = {};
+$('tabs').addEventListener('click', e => {
+  const t = e.target.dataset.tab; if (!t) return;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  document.querySelectorAll('main > section').forEach(s => s.hidden = s.id !== t);
+  loaders[t]?.();
+});
+
+/* ---------- Overview ---------- */
+loaders.overview = async () => {
+  const [ent, alerts] = await Promise.all([api('/api/entitlements'), api('/api/alerts?status=unresolved')]);
+  const crit = alerts.filter(a => a.severity === 'critical').length;
+  const warn = alerts.filter(a => a.severity === 'warning').length;
+  const over = ent.entitlements.filter(e => e.status !== 'OK').length;
+  $('tiles').innerHTML = [
+    ['Unresolved alerts', alerts.length], ['Critical', crit], ['Warning', warn],
+    ['Entitlements at risk', `${over} / ${ent.entitlements.length}`], ['Last computed', ts(ent.computedat || ent.computedAt)]
+  ].map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v" style="${k === 'Last computed' ? 'font-size:14px' : ''}">${v}</div></div>`).join('');
+  const c = ent.contract || {};
+  $('contractSub').textContent = `Contract ${c.id || '–'} · ${c.start || '?'} to ${c.end || '?'} · mode: ${ent.operatingMode || '–'}`;
+  $('entTable').innerHTML = table([
+    { h: 'Metric', k: 'name' },
+    { h: 'Model', f: r => r.usage_model === 'DRAWDOWN' ? 'drawdown' : 'high watermark' },
+    { h: 'Used', num: 1, f: r => num(r.usage_value, 2) },
+    { h: 'Limit', num: 1, f: r => num(r.limit_value) },
+    { h: 'Unit', k: 'unit' },
+    { h: '% used', num: 1, f: r => r.pct_used == null ? '–' : num(r.pct_used, 1) + '%' },
+    { h: '', f: r => { const p = Math.min(100, r.pct_used || 0); const col = r.status === 'CRITICAL' ? 'var(--crit)' : r.status === 'WARNING' ? 'var(--warn)' : 'var(--ok)'; return `<div class="bar"><span style="width:${p}%;background:${col}"></span></div>`; } },
+    { h: 'Status', f: r => pill(r.status) }
+  ], ent.entitlements, 'No usage collected yet. Run collect_all from the Jobs tab.');
+  $('monTable').innerHTML = table([
+    { h: 'Metric', k: 'name' },
+    { h: 'Current month', num: 1, f: r => num(r.usage_value, 2) },
+    { h: 'Unit', k: 'unit' }
+  ], ent.monitoring);
+};
+
+/* ---------- Alerts ---------- */
+let alertStatus = 'unresolved';
+$('alertFilters').addEventListener('click', e => {
+  if (!e.target.dataset.v) return;
+  alertStatus = e.target.dataset.v;
+  [...$('alertFilters').children].forEach(b => b.classList.toggle('sel', b === e.target));
+  loaders.alerts();
+});
+loaders.alerts = async () => {
+  const rows = await api('/api/alerts?status=' + alertStatus);
+  $('alertTable').innerHTML = table([
+    { h: 'Severity', f: r => pill(r.severity) },
+    { h: 'Source', f: r => r.rule === 'usage_threshold' ? 'Usage' : 'Audit' },
+    { h: 'Subject', k: 'subject' },
+    { h: 'Detail', k: 'message' },
+    { h: 'Raised (UTC)', f: r => ts(r.created_at) },
+    { h: 'Status', f: r => pill(r.status) },
+    { h: '', f: r => r.status === 'resolved' ? '' :
+        (r.status === 'open' ? `<button class="btn small" data-act="acknowledge" data-id="${r.id}">Acknowledge</button> ` : '') +
+        `<button class="btn small" data-act="resolve" data-id="${r.id}">Resolve</button>` }
+  ], rows, 'No alerts here.');
+};
+$('alertTable').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  b.disabled = true;
+  try { await api(`/api/alerts/${b.dataset.id}/${b.dataset.act}`, { method: 'POST' }); } catch (err) { b.textContent = err.message; }
+  loaders.alerts();
+});
+
+/* ---------- Audit ---------- */
+let auditRisk = 'all';
+$('auditFilters').addEventListener('click', e => {
+  if (!e.target.dataset.v) return;
+  auditRisk = e.target.dataset.v;
+  [...$('auditFilters').children].forEach(b => b.classList.toggle('sel', b === e.target));
+  loaders.audit();
+});
+loaders.audit = async () => {
+  const d = await api('/api/audit?risk=' + auditRisk);
+  $('auditTable').innerHTML = table([
+    { h: 'Time (UTC)', f: r => ts(r.event_ts) },
+    { h: 'Risk', f: r => pill(r.risk) },
+    { h: 'User', k: 'user_name' },
+    { h: 'Action', f: r => esc(r.action) + (r.subaction ? ` <span class="muted">/ ${esc(r.subaction)}</span>` : '') },
+    { h: 'Object type', k: 'object_type' },
+    { h: 'Object', k: 'object_name' }
+  ], d.events, 'No audit events stored.');
+  $('pollTable').innerHTML = table([
+    { h: 'Window start', f: r => ts(r.window_start_utc) },
+    { h: 'Window end', f: r => ts(r.window_end_utc) },
+    { h: 'Status', f: r => pill(r.status) },
+    { h: 'Fetched', num: 1, f: r => num(r.events_fetched) },
+    { h: 'Stored', num: 1, f: r => num(r.events_stored) },
+    { h: 'Message', k: 'message' }
+  ], d.polls);
+};
+
+/* ---------- Inventory ---------- */
+loaders.inventory = async () => {
+  const d = await api('/api/inventory');
+  $('invTiles').innerHTML = [['Business groups', d.businessGroups.length], ['Environments', d.environments.length],
+    ['Applications', d.applications.length], ['APIs', d.apis.length], ['Collected', ts(d.collectedAt)]]
+    .map(([k, v]) => `<div class="tile"><div class="k">${k}</div><div class="v" style="${k === 'Collected' ? 'font-size:14px' : ''}">${v}</div></div>`).join('');
+  $('invApps').innerHTML = table([{ h: 'Name', k: 'name' }, { h: 'Business group', k: 'org' }, { h: 'Environment', k: 'env' },
+    { h: 'Status', k: 'status' }, { h: 'Runtime', k: 'runtime_version' }], d.applications);
+  $('invApis').innerHTML = table([{ h: 'Asset', k: 'asset_id' }, { h: 'Version', k: 'version' }, { h: 'Label', k: 'label' },
+    { h: 'Business group', k: 'org' }, { h: 'Environment', k: 'env' }, { h: 'Status', k: 'status' }, { h: 'API ID', k: 'api_id' }], d.apis);
+  $('invEnvs').innerHTML = table([{ h: 'Name', k: 'name' }, { h: 'Business group', k: 'org' }, { h: 'Type', k: 'env_type' },
+    { h: 'Production', f: r => r.is_production ? 'yes' : 'no' }], d.environments);
+  $('invBgs').innerHTML = table([{ h: 'Name', k: 'name' }, { h: 'Parent', f: r => esc(r.parent || '(root)') }, { h: 'Org ID', k: 'org_id' }], d.businessGroups);
+};
+
+/* ---------- Jobs ---------- */
+loaders.jobs = async () => {
+  const d = await api('/api/jobs');
+  $('jobSub').textContent = `collect_all runs automatically every ${d.intervalMinutes} minutes.`;
+  $('jobTable').innerHTML = table([
+    { h: 'Job', k: 'job_name' }, { h: 'Trigger', k: 'trigger_src' }, { h: 'Status', f: r => pill(r.status) },
+    { h: 'Started (UTC)', f: r => ts(r.started_at) }, { h: 'Finished (UTC)', f: r => ts(r.finished_at) }, { h: 'Result', k: 'message' }
+  ], d.runs, 'No jobs have run yet.');
+};
+document.querySelectorAll('[data-job]').forEach(b => b.addEventListener('click', async () => {
+  $('jobMsg').textContent = 'Starting ' + b.dataset.job + '…';
+  try { await api('/jobs/run/' + b.dataset.job, { method: 'POST' }); $('jobMsg').textContent = b.dataset.job + ' started. Refreshing in 10s…'; }
+  catch (err) { $('jobMsg').textContent = err.message; return; }
+  setTimeout(() => { loaders.jobs(); $('jobMsg').textContent = ''; }, 10000);
+}));
+
+/* ---------- Settings ---------- */
+loaders.settings = async () => {
+  const s = await api('/api/settings');
+  $('setRecipients').value = (s['alerts.email.to'] || []).join('\n');
+  $('setExclude').value = (s['audit.exclude_actions'] || []).join(', ');
+  $('setResolve').value = s['audit.auto_resolve_days'];
+  $('setLookback').value = s['audit.max_lookback_hours'];
+  const ro = s.readOnly || {};
+  $('roTable').innerHTML = table([{ h: 'Property', k: 'k' }, { h: 'Value', k: 'v' }], Object.keys(ro).map(k => ({ k, v: ro[k] })));
+};
+$('saveSettings').addEventListener('click', async () => {
+  const body = {
+    'alerts.email.to': $('setRecipients').value.split(/[\n,;]/).map(x => x.trim()).filter(Boolean),
+    'audit.exclude_actions': $('setExclude').value.split(',').map(x => x.trim()).filter(Boolean),
+    'audit.auto_resolve_days': Number($('setResolve').value),
+    'audit.max_lookback_hours': Number($('setLookback').value)
+  };
+  $('setMsg').textContent = 'Saving…';
+  try { await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) }); $('setMsg').textContent = 'Saved.'; }
+  catch (err) { $('setMsg').textContent = err.message; }
+});
+
+/* ---------- Boot ---------- */
+(async () => {
+  try {
+    const j = await api('/api/jobs');
+    const last = j.runs[0];
+    $('hdrMeta').textContent = last ? `Last job: ${last.job_name} · ${last.status} · ${String(last.finished_at).replace('T', ' ').replace('Z', '')} UTC` : 'No jobs run yet';
+  } catch { $('hdrMeta').textContent = 'API unreachable'; }
+  loaders.overview().catch(err => $('entTable').innerHTML = `<div class="empty">${esc(err.message)}</div>`);
+})();
+</script>
+</body>
+</html>

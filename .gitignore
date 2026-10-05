@@ -21,3 +21,6 @@ data/scheduler_state.json
 
 # Third-party partner document (vendor-confidential)
 docs/FY26_MuleSoft_Partner_Entitlement_FAQs_extracted.txt
+
+# Mule app documentation (generated from mule-app/docs/src, no contract data)
+!mule-app/docs/*.pdf

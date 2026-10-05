@@ -1,0 +1,12 @@
+{
+  "minMuleVersion": "4.8.0",
+  "javaSpecificationVersions": [
+    "17"
+  ],
+  "secureProperties": [
+    "anypoint.client.id",
+    "anypoint.client.secret",
+    "db.password",
+    "email.smtp.password"
+  ]
+}

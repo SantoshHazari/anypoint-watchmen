@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!--
+		Runtime-editable settings (recipients, audit exclusions, ...) live in app_setting as JSON values.
+		Defaults come from config/default-settings.json and are seeded on startup.
+	-->
+
+	<!-- Sets vars.settings: defaults overlaid with whatever is stored in the DB -->
+	<sub-flow name="load-settings">
+		<db:select doc:name="Stored settings" config-ref="Watchmen_DB" target="settingRows">
+			<db:sql><![CDATA[SELECT setting_key, setting_value FROM app_setting]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Merge with defaults">
+			<ee:variables>
+				<ee:set-variable variableName="settings"><![CDATA[%dw 2.0
+import lowerKeys from modules::util
+output application/java
+var defaults = readUrl("classpath://config/default-settings.json", "application/json")
+var stored = {(lowerKeys(vars.settingRows) map ((r) -> {(r.setting_key): read(r.setting_value, "application/json")}))}
+---
+(defaults filterObject ((v, k) -> stored[k as String] == null)) ++ stored]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<remove-variable variableName="settingRows" />
+	</sub-flow>
+
+	<!-- Inserts any default setting that is not stored yet -->
+	<sub-flow name="seed-settings">
+		<db:select doc:name="Existing keys" config-ref="Watchmen_DB" target="settingRows">
+			<db:sql><![CDATA[SELECT setting_key FROM app_setting]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Missing defaults">
+			<ee:variables>
+				<ee:set-variable variableName="missingSettings"><![CDATA[%dw 2.0
+import lowerKeys from modules::util
+output application/java
+var defaults = readUrl("classpath://config/default-settings.json", "application/json")
+var existing = lowerKeys(vars.settingRows) map ((r) -> r.setting_key)
+---
+(defaults pluck ((v, k) -> {setting_key: k as String, setting_value: write(v, "application/json", {indent: false})}))
+	filter ((s) -> not (existing contains s.setting_key))]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice>
+			<when expression="#[not isEmpty(vars.missingSettings)]">
+				<db:bulk-insert doc:name="Insert defaults" config-ref="Watchmen_DB">
+					<db:bulk-input-parameters><![CDATA[#[vars.missingSettings]]]></db:bulk-input-parameters>
+					<db:sql><![CDATA[INSERT INTO app_setting (setting_key, setting_value) VALUES (:setting_key, :setting_value)]]></db:sql>
+				</db:bulk-insert>
+			</when>
+		</choice>
+		<remove-variable variableName="settingRows" />
+		<remove-variable variableName="missingSettings" />
+	</sub-flow>
+
+	<!-- Replaces the given settings. Expects vars.newSettings: [{setting_key, setting_value}] -->
+	<sub-flow name="save-settings">
+		<db:bulk-delete doc:name="Delete old values" config-ref="Watchmen_DB">
+			<db:bulk-input-parameters><![CDATA[#[vars.newSettings map {setting_key: $.setting_key}]]]></db:bulk-input-parameters>
+			<db:sql><![CDATA[DELETE FROM app_setting WHERE setting_key = :setting_key]]></db:sql>
+		</db:bulk-delete>
+		<db:bulk-insert doc:name="Insert new values" config-ref="Watchmen_DB">
+			<db:bulk-input-parameters><![CDATA[#[vars.newSettings]]]></db:bulk-input-parameters>
+			<db:sql><![CDATA[INSERT INTO app_setting (setting_key, setting_value) VALUES (:setting_key, :setting_value)]]></db:sql>
+		</db:bulk-insert>
+	</sub-flow>
+
+</mule>

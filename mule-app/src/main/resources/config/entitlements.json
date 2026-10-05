@@ -1,0 +1,32 @@
+{
+  "_comment": "Limits come from the MuleSoft Monthly Usage Summary (invoice). 'meter'/'measurement' are Usage API names, checked against GET /api/usage/meters (meters:describe) for the org on 2026-10-01. usage_model: HIGH_WATERMARK = max monthly value, DRAWDOWN = sum since contract.start, MONITOR = shown only, never alerts. divisor converts the raw value into 'unit'.",
+  "operating_mode": "contract_confirmed",
+  "contract": {
+    "id": "YOUR-CONTRACT-ID",
+    "start": "2026-01",
+    "end": "2026-12"
+  },
+  "entitlements": [
+    { "key": "mule_flows",                "name": "Mule Flows",                 "meter": "runtime_flow_count",                     "measurement": "mule_flow_count",         "usage_model": "HIGH_WATERMARK", "limit": 280,       "unit": "flows",     "divisor": 1,          "verified": true },
+    { "key": "mule_messages",             "name": "Mule Messages",              "meter": "runtime_mule_message_count",             "measurement": "mule_message_count",      "usage_model": "DRAWDOWN",       "limit": 47000000,  "unit": "messages",  "divisor": 1,          "verified": true },
+    { "key": "data_throughput",           "name": "Data Throughput",            "meter": "runtime_network_bytes_count",            "measurement": "network_bytes_count",     "usage_model": "DRAWDOWN",       "limit": 56500,     "unit": "GB",        "divisor": 1073741824, "verified": true },
+    { "key": "api_manager_production",    "name": "API Manager Production",     "meter": "api_manager_api_instance_count_prod",    "measurement": "managed_api_count",       "usage_model": "HIGH_WATERMARK", "limit": 52,        "unit": "instances", "divisor": 1,          "verified": true },
+    { "key": "api_manager_preproduction", "name": "API Manager Pre-Production", "meter": "api_manager_api_instance_count_preprod", "measurement": "managed_api_count",       "usage_model": "HIGH_WATERMARK", "limit": 52,        "unit": "instances", "divisor": 1,          "verified": true },
+    { "key": "apis_under_governance",     "name": "APIs Under Governance",      "meter": "governed_api_count",                     "measurement": "governed_api_count",      "usage_model": "HIGH_WATERMARK", "limit": 52,        "unit": "APIs",      "divisor": 1,          "verified": true },
+    { "key": "flex_gateway_api_calls",    "name": "Flex Gateway API Calls",     "meter": "flex_api_call_count",                    "measurement": "api_call_count",          "usage_model": "DRAWDOWN",       "limit": 120000000, "unit": "calls",     "divisor": 1,          "verified": true },
+    { "key": "api_access_requests",       "name": "API Access Requests",        "meter": "acm_aeh_approved_contracts_count",       "measurement": "approved_contract_count", "usage_model": "DRAWDOWN",       "limit": 100,       "unit": "requests",  "divisor": 1,          "verified": false },
+    { "key": "idp_processed_pages",       "name": "IDP Processed Pages",        "meter": "idp_processed_pages",                    "measurement": "processed_pages",         "usage_model": "DRAWDOWN",       "limit": 300000,    "unit": "pages",     "divisor": 1,          "verified": true },
+
+    { "key": "llm_total_tokens",          "name": "LLM Proxy - Total Tokens",        "meter": "flex_total_tokens",                         "measurement": "total_tokens",                 "usage_model": "MONITOR", "limit": 0, "unit": "tokens",   "divisor": 1,          "verified": true },
+    { "key": "llm_prompt_tokens",         "name": "LLM Proxy - Prompt Tokens",       "meter": "flex_prompt_tokens",                        "measurement": "prompt_tokens",                "usage_model": "MONITOR", "limit": 0, "unit": "tokens",   "divisor": 1,          "verified": true },
+    { "key": "llm_completion_tokens",     "name": "LLM Proxy - Completion Tokens",   "meter": "flex_completion_tokens",                    "measurement": "completion_tokens",            "usage_model": "MONITOR", "limit": 0, "unit": "tokens",   "divisor": 1,          "verified": true },
+    { "key": "flex_outbound_gb",          "name": "Flex Gateway Outbound Data",      "meter": "flex_network_outbound_bytes_count",         "measurement": "network_outbound_bytes_count", "usage_model": "MONITOR", "limit": 0, "unit": "GB",       "divisor": 1073741824, "verified": true },
+    { "key": "object_store_api_requests", "name": "Object Store API Requests",       "meter": "object_store_effective_api_requests_count", "measurement": "effective_api_requests",       "usage_model": "MONITOR", "limit": 0, "unit": "requests", "divisor": 1,          "verified": true },
+    { "key": "anypoint_mq_api_requests",  "name": "Anypoint MQ API Requests",        "meter": "anypoint_mq_api_requests_count",            "measurement": "api_requests",                 "usage_model": "MONITOR", "limit": 0, "unit": "requests", "divisor": 1,          "verified": true },
+    { "key": "anypoint_mq_messages",      "name": "Anypoint MQ Messages Received",   "meter": "anypoint_mq_messages_received_count",       "measurement": "messages_received",            "usage_model": "MONITOR", "limit": 0, "unit": "messages", "divisor": 1,          "verified": true },
+    { "key": "vcore_prod",                "name": "vCore Usage - Production",        "meter": "rmp_total_vcore_usage_prod",                "measurement": "total_vcore_usage",            "usage_model": "MONITOR", "limit": 0, "unit": "vCores",   "divisor": 1,          "verified": true },
+    { "key": "vcore_preprod",             "name": "vCore Usage - Pre-Production",    "meter": "rmp_total_vcore_usage_preprod",             "measurement": "total_vcore_usage",            "usage_model": "MONITOR", "limit": 0, "unit": "vCores",   "divisor": 1,          "verified": true },
+    { "key": "composer_tasks",            "name": "Composer Tasks",                  "meter": "composer_num_tasks",                        "measurement": "num_tasks",                    "usage_model": "MONITOR", "limit": 0, "unit": "tasks",    "divisor": 1,          "verified": true },
+    { "key": "rpa_bot_minutes",           "name": "RPA Bot Session Minutes",         "meter": "rpa_bot_session_minutes",                   "measurement": "bot_usage",                    "usage_model": "MONITOR", "limit": 0, "unit": "minutes",  "divisor": 1,          "verified": true }
+  ]
+}
